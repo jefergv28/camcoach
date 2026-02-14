@@ -1,14 +1,15 @@
 import {
   Home,
-  Inbox,
   Calendar,
-  Search,
   Settings,
+  Users2,
+  ClipboardList,
+  GraduationCap,
+  Wallet,
+  BarChart3,
   User2,
   ChevronUp,
   Plus,
-  Projector,
-  ChevronDown,
 } from "lucide-react";
 import {
   Sidebar,
@@ -42,31 +43,32 @@ import {
   CollapsibleTrigger,
 } from "./ui/collapsible";
 
-const items = [
+// MENÚ PRINCIPAL (manteniendo estructura original)
+const appItems = [
   {
     title: "Home",
     url: "/",
     icon: Home,
   },
   {
-    title: "Inbox",
-    url: "#",
-    icon: Inbox,
+    title: "Clientes",
+    url: "/Clientes",
+    icon: Users2,
   },
   {
-    title: "Calendar",
-    url: "#",
+    title: "Calendario",
+    url: "/calendario",
     icon: Calendar,
   },
   {
-    title: "Search",
-    url: "#",
-    icon: Search,
+    title: "Ingresos",
+    url: "/ingresos",
+    icon: Wallet,
   },
   {
-    title: "Settings",
-    url: "#",
-    icon: Settings,
+    title: "Buscar",
+    url: "/buscar",
+    icon: Settings, // si quieres, luego cambias por Search
   },
 ];
 
@@ -77,21 +79,24 @@ const AppSidebar = () => {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <Link href="/">
-                <Image src="/logo.svg" alt="logo" width={20} height={20} />
-                <span>Lama Dev</span>
+              <Link href="/" className="flex items-center gap-1">
+                <Image src="/logo.svg" alt="logo" width={35} height={40} />
+                <span className="text-lg font-semibold">CamCoach</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
       <SidebarSeparator />
+
       <SidebarContent>
+        {/* APPLICATION */}
         <SidebarGroup>
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {appItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <Link href={item.url}>
@@ -99,47 +104,50 @@ const AppSidebar = () => {
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
-                  {item.title === "Inbox" && (
-                    <SidebarMenuBadge>24</SidebarMenuBadge>
+                  {item.title === "Modelos" && (
+                    <SidebarMenuBadge>16</SidebarMenuBadge>
                   )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* PROJECTS → PLANES Y CAPACITACIONES */}
         <SidebarGroup>
           <SidebarGroupLabel>Projects</SidebarGroupLabel>
           <SidebarGroupAction>
-            <Plus /> <span className="sr-only">Add Project</span>
+            <Plus /> <span className="sr-only">Nuevo</span>
           </SidebarGroupAction>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/#">
-                    <Projector />
-                    See All Projects
+                  <Link href="/planes">
+                    <ClipboardList />
+                    Planes de trabajo
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/#">
-                    <Plus />
-                    Add Project
+                  <Link href="/capacitaciones">
+                    <GraduationCap />
+                    Capacitaciones
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        {/* COLLAPSABLE */}
+
+        {/* COLLAPSABLE → REPORTES */}
         <Collapsible defaultOpen className="group/collapsible">
           <SidebarGroup>
             <SidebarGroupLabel asChild>
               <CollapsibleTrigger>
-                Collapsable Group
-                <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                Reportes
+                <ChevronUp className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
               </CollapsibleTrigger>
             </SidebarGroupLabel>
             <CollapsibleContent>
@@ -147,17 +155,9 @@ const AppSidebar = () => {
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <Link href="/#">
-                        <Projector />
-                        See All Projects
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild>
-                      <Link href="/#">
-                        <Plus />
-                        Add Project
+                      <Link href="/reportes">
+                        <BarChart3 />
+                        Ver reportes
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -166,32 +166,29 @@ const AppSidebar = () => {
             </CollapsibleContent>
           </SidebarGroup>
         </Collapsible>
-        {/* NESTED */}
+
+        {/* NESTED → CONFIGURACIÓN */}
         <SidebarGroup>
-          <SidebarGroupLabel>Nested Items</SidebarGroupLabel>
+          <SidebarGroupLabel>Settings</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/#">
-                    <Projector />
-                    See All Projects
+                  <Link href="/configuracion">
+                    <Settings />
+                    Configuración
                   </Link>
                 </SidebarMenuButton>
                 <SidebarMenuSub>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
-                      <Link href="/#">
-                        <Plus />
-                        Add Project
-                      </Link>
+                      <Link href="/configuracion/cuenta">Cuenta</Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
-                      <Link href="/#">
-                        <Plus />
-                        Add Category
+                      <Link href="/configuracion/preferencias">
+                        Preferencias
                       </Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
@@ -201,19 +198,22 @@ const AppSidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton>
-                  <User2 /> John Doe <ChevronUp className="ml-auto" />
+                  <User2 />
+                  Nya
+                  <ChevronUp className="ml-auto" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>Account</DropdownMenuItem>
-                <DropdownMenuItem>Setting</DropdownMenuItem>
-                <DropdownMenuItem>Sign out</DropdownMenuItem>
+                <DropdownMenuItem>Perfil</DropdownMenuItem>
+                <DropdownMenuItem>Cuenta</DropdownMenuItem>
+                <DropdownMenuItem>Cerrar sesión</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

@@ -2,114 +2,146 @@ import Image from "next/image";
 import { Card, CardContent, CardFooter, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 
-const popularContent = [
+// Clientes destacados (ejemplo) - CAMBIADO
+const featuredClientes = [  // ← Cambió de featuredModels
   {
     id: 1,
-    title: "JavaScript Tutorial",
-    badge: "Coding",
+    name: "Luna Star",
+    badge: "Top ingresos",
     image:
-      "https://images.pexels.com/photos/3861964/pexels-photo-3861964.jpeg?auto=compress&cs=tinysrgb&w=800",
-    count: 4300,
+      "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=800",
+    total: 4_300,
   },
   {
     id: 2,
-    title: "Tech Trends 2025",
-    badge: "Tech",
+    name: "Mia Rose",
+    badge: "Mayor crecimiento",
     image:
-      "https://images.pexels.com/photos/1714208/pexels-photo-1714208.jpeg?auto=compress&cs=tinysrgb&w=800",
-    count: 3200,
+      "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=800",
+    total: 3_200,
   },
   {
     id: 3,
-    title: "The Future of AI",
-    badge: "AI",
+    name: "Valeria Sky",
+    badge: "Mejor constancia",
     image:
-      "https://images.pexels.com/photos/2007647/pexels-photo-2007647.jpeg?auto=compress&cs=tinysrgb&w=800",
-    count: 2400,
+      "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=800",
+    total: 2_400,
   },
   {
     id: 4,
-    title: "React Hooks Explained",
-    badge: "Coding",
+    name: "Amy Blue",
+    badge: "Nueva promesa",
     image:
-      "https://images.pexels.com/photos/943096/pexels-photo-943096.jpeg?auto=compress&cs=tinysrgb&w=800",
-    count: 1500,
+      "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=800",
+    total: 1_500,
   },
   {
     id: 5,
-    title: "Image Generation with AI",
-    badge: "AI",
+    name: "Nora Flame",
+    badge: "Top tips",
     image:
-      "https://images.pexels.com/photos/3094799/pexels-photo-3094799.jpeg?auto=compress&cs=tinysrgb&w=800",
-    count: 1200,
+      "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=800",
+    total: 1_200,
   },
 ];
 
-const latestTransactions = [
+// Últimos ingresos (ejemplo) - CAMBIADO (badges ahora son nombres de clientes)
+const latestEarnings = [
   {
     id: 1,
-    title: "Subscription Renewal",
-    badge: "John Doe",
+    title: "Ingreso Plataforma A",  // ← Cambió Chaturbate → genérico
+    badge: "Luna Star",  // ← Se queda (nombre cliente)
     image:
-      "https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=800",
-    count: 1400,
+      "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=800",
+    amount: 1_400,
   },
   {
     id: 2,
-    title: "Payment for Services",
-    badge: "Jane Smith",
+    title: "Ingreso Plataforma B",  // ← Cambió Stripchat → genérico
+    badge: "Mia Rose",
     image:
-      "https://images.pexels.com/photos/4969918/pexels-photo-4969918.jpeg?auto=compress&cs=tinysrgb&w=800",
-    count: 2100,
+      "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=800",
+    amount: 2_100,
   },
   {
     id: 3,
-    title: "Subscription Renewal",
-    badge: "Michael Johnson",
+    title: "Ingreso Plataforma C",  // ← Cambió OnlyFans → genérico
+    badge: "Valeria Sky",
     image:
-      "https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=800",
-    count: 1300,
+      "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=800",
+    amount: 1_300,
   },
   {
     id: 4,
-    title: "Payment for Services",
-    badge: "Lily Adams",
+    title: "Ingreso Plataforma D",  // ← Cambió Streamate → genérico
+    badge: "Amy Blue",
     image:
-      "https://images.pexels.com/photos/712513/pexels-photo-712513.jpeg?auto=compress&cs=tinysrgb&w=800",
-    count: 2500,
+      "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=800",
+    amount: 2_500,
   },
   {
     id: 5,
-    title: "Subscription Renewal",
-    badge: "Sam Brown",
+    title: "Ingreso extras",  // ← Cambió Propinas privadas → genérico
+    badge: "Nora Flame",
     image:
-      "https://images.pexels.com/photos/1680175/pexels-photo-1680175.jpeg?auto=compress&cs=tinysrgb&w=800",
-    count: 1400,
+      "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=800",
+    amount: 1_400,
   },
 ];
+
+type FeaturedCliente = {  // ← Cambió de FeaturedModel
+  id: number;
+  name: string;
+  badge: string;
+  image: string;
+  total: number;
+};
+
+type LatestEarning = {
+  id: number;
+  title: string;
+  badge: string;
+  image: string;
+  amount: number;
+};
+
+type CardItem = FeaturedCliente | LatestEarning;  // ← Actualizado
 
 const CardList = ({ title }: { title: string }) => {
-  const list =
-    title === "Popular Content" ? popularContent : latestTransactions;
+  // Si el título es "Clientes destacados" mostramos featuredClientes, si no latestEarnings
+  const list = title === "Clientes destacados" ? featuredClientes : latestEarnings;  // ← Cambió
+
   return (
-    <div className="">
+    <div>
       <h1 className="text-lg font-medium mb-6">{title}</h1>
       <div className="flex flex-col gap-2">
-        {list.map((item) => (
-          <Card key={item.id} className="flex-row items-center justify-between gap-4 p-4">
+        {(list as CardItem[]).map((item) => (
+          <Card
+            key={item.id}
+            className="flex-row items-center justify-between gap-4 p-4"
+          >
             <div className="w-12 h-12 rounded-sm relative overflow-hidden">
               <Image
                 src={item.image}
-                alt={item.title}
+                alt={"name" in item ? item.name : item.title}
                 fill
                 className="object-cover"
               />
             </div>
+
             <CardContent className="flex-1 p-0">
-              <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                {"name" in item ? item.name : item.title}
+              </CardTitle>
               <Badge variant="secondary">{item.badge}</Badge>
             </CardContent>
-            <CardFooter className="p-0">{item.count / 1000}K</CardFooter>
+
+            <CardFooter className="p-0">
+              {"total" in item
+                ? `${item.total / 1000}K`
+                : `${item.amount / 1000}K`}
+            </CardFooter>
           </Card>
         ))}
       </div>

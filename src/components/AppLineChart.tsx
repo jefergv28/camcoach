@@ -1,24 +1,30 @@
 "use client";
 
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
-import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "./ui/chart";
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "./ui/chart";
 
 const chartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
+  { month: "Enero", ingresos: 1800, horas: 120 },
+  { month: "Febrero", ingresos: 2100, horas: 135 },
+  { month: "Marzo", ingresos: 2500, horas: 150 },
+  { month: "Abril", ingresos: 1900, horas: 110 },
+  { month: "Mayo", ingresos: 2300, horas: 140 },
+  { month: "Junio", ingresos: 2600, horas: 160 },
 ];
+
 const chartConfig = {
-  desktop: {
-    label: "Desktop",
-    color: "var(--chart-1)",
+  ingresos: {
+    label: "Ingresos (USD)",
+    color: "#FF3B7F", // fucsia CamCoach
   },
-  mobile: {
-    label: "Mobile",
-    color: "var(--chart-2)",
+  horas: {
+    label: "Horas conectadas",
+    color: "#3498DB", // azul de apoyo
   },
 } satisfies ChartConfig;
 
@@ -28,10 +34,7 @@ const AppLineChart = () => {
       <LineChart
         accessibilityLayer
         data={chartData}
-        margin={{
-          left: 12,
-          right: 12,
-        }}
+        margin={{ left: 12, right: 12 }}
       >
         <CartesianGrid vertical={false} />
         <XAxis
@@ -41,23 +44,19 @@ const AppLineChart = () => {
           tickMargin={8}
           tickFormatter={(value) => value.slice(0, 3)}
         />
-        <YAxis
-          tickLine={false}
-          axisLine={false}
-          tickMargin={8}
-        />
+        <YAxis tickLine={false} axisLine={false} tickMargin={8} />
         <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
         <Line
-          dataKey="desktop"
+          dataKey="ingresos"
           type="monotone"
-          stroke="var(--color-desktop)"
+          stroke="var(--color-ingresos)"
           strokeWidth={2}
           dot={false}
         />
         <Line
-          dataKey="mobile"
+          dataKey="horas"
           type="monotone"
-          stroke="var(--color-mobile)"
+          stroke="var(--color-horas)"
           strokeWidth={2}
           dot={false}
         />
