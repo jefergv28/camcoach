@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Home,
   Calendar,
@@ -10,7 +12,10 @@ import {
   User2,
   ChevronUp,
   Plus,
+  User,
+  Clock,
 } from "lucide-react";
+
 import {
   Sidebar,
   SidebarContent,
@@ -29,57 +34,55 @@ import {
   SidebarMenuSubItem,
   SidebarSeparator,
 } from "./ui/sidebar";
+
 import Link from "next/link";
 import Image from "next/image";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./ui/collapsible";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Separator } from "./ui/separator";
+import { usePathname } from "next/navigation";
 
-// MENÚ PRINCIPAL (manteniendo estructura original)
+/* =========================
+   MENÚ PRINCIPAL
+========================= */
+
 const appItems = [
-  {
-    title: "Home",
-    url: "/",
-    icon: Home,
-  },
-  {
-    title: "Clientes",
-    url: "/Clientes",
-    icon: Users2,
-  },
-  {
-    title: "Calendario",
-    url: "/calendario",
-    icon: Calendar,
-  },
-  {
-    title: "Ingresos",
-    url: "/ingresos",
-    icon: Wallet,
-  },
-  {
-    title: "Buscar",
-    url: "/buscar",
-    icon: Settings, // si quieres, luego cambias por Search
-  },
+  { title: "Home", url: "/dashboard", icon: Home },
+  { title: "Clientes", url: "/dashboard/Clientes", icon: Users2 },
+  { title: "Calendario", url: "/dashboard/Calendario", icon: Calendar },
+  { title: "Ingresos", url: "/dashboard/Ingresos", icon: Wallet },
+  { title: "Buscar", url: "/dashboard/Buscar", icon: Settings },
 ];
 
 const AppSidebar = () => {
+  const pathname = usePathname(); // ← DETECTA RUTA
+
+  // ← OCULTA COMPLETO EN LANDING
+  if (pathname === '/') {
+    return (
+      <div className="w-0 hidden lg:w-0 border-r-0" />  // Espacio vacío invisible
+    );}
+
   return (
     <Sidebar collapsible="icon">
+      {/* HEADER */}
       <SidebarHeader className="py-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <Link href="/" className="flex items-center gap-1">
+              <Link href="/" className="flex items-center gap-2">
                 <Image src="/logo.svg" alt="logo" width={35} height={40} />
                 <span className="text-lg font-semibold">CamCoach</span>
               </Link>
@@ -91,7 +94,7 @@ const AppSidebar = () => {
       <SidebarSeparator />
 
       <SidebarContent>
-        {/* APPLICATION */}
+        {/* ================= APPLICATION ================= */}
         <SidebarGroup>
           <SidebarGroupLabel>Application</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -104,36 +107,36 @@ const AppSidebar = () => {
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
-                  {item.title === "Modelos" && (
-                    <SidebarMenuBadge>16</SidebarMenuBadge>
-                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* PROJECTS → PLANES Y CAPACITACIONES */}
+        {/* ================= PROJECTS ================= */}
         <SidebarGroup>
           <SidebarGroupLabel>Projects</SidebarGroupLabel>
           <SidebarGroupAction>
-            <Plus /> <span className="sr-only">Nuevo</span>
+            <Plus />
+            <span className="sr-only">Nuevo</span>
           </SidebarGroupAction>
+
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/planes">
+                  <Link href="/Planes-trabajo">
                     <ClipboardList />
-                    Planes de trabajo
+                    <span>Planes de trabajo</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <Link href="/capacitaciones">
                     <GraduationCap />
-                    Capacitaciones
+                    <span>Capacitaciones</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -141,15 +144,16 @@ const AppSidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* COLLAPSABLE → REPORTES */}
+        {/* ================= REPORTES ================= */}
         <Collapsible defaultOpen className="group/collapsible">
           <SidebarGroup>
             <SidebarGroupLabel asChild>
-              <CollapsibleTrigger>
+              <CollapsibleTrigger className="flex w-full items-center">
                 Reportes
                 <ChevronUp className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
               </CollapsibleTrigger>
             </SidebarGroupLabel>
+
             <CollapsibleContent>
               <SidebarGroupContent>
                 <SidebarMenu>
@@ -157,7 +161,7 @@ const AppSidebar = () => {
                     <SidebarMenuButton asChild>
                       <Link href="/reportes">
                         <BarChart3 />
-                        Ver reportes
+                        <span>Ver reportes</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -167,38 +171,38 @@ const AppSidebar = () => {
           </SidebarGroup>
         </Collapsible>
 
-        {/* NESTED → CONFIGURACIÓN */}
+        {/* ================= SETTINGS ================= */}
         <SidebarGroup>
           <SidebarGroupLabel>Settings</SidebarGroupLabel>
+
           <SidebarGroupContent>
             <SidebarMenu>
+              {/* Usuarios */}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link href="/configuracion/usuarios">
+                    <Users2 />
+                    <span>Usuarios</span>
+                  </Link>
+                </SidebarMenuButton>
+                <SidebarMenuBadge>12</SidebarMenuBadge>
+              </SidebarMenuItem>
+
+              {/* Configuración */}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <Link href="/configuracion">
                     <Settings />
-                    Configuración
+                    <span>Configuración</span>
                   </Link>
                 </SidebarMenuButton>
-                <SidebarMenuSub>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton asChild>
-                      <Link href="/configuracion/cuenta">Cuenta</Link>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton asChild>
-                      <Link href="/configuracion/preferencias">
-                        Preferencias
-                      </Link>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                </SidebarMenuSub>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
+      {/* ================= FOOTER ================= */}
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -206,14 +210,38 @@ const AppSidebar = () => {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton>
                   <User2 />
-                  Nya
+                  <span>Nya</span>
                   <ChevronUp className="ml-auto" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Perfil</DropdownMenuItem>
-                <DropdownMenuItem>Cuenta</DropdownMenuItem>
-                <DropdownMenuItem>Cerrar sesión</DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="flex items-center gap-3 p-2 mb-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src="/avatar-nya.jpg" />
+                    <AvatarFallback>NY</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-medium">Nya</p>
+                    <p className="text-xs text-muted-foreground">
+                      nya@camcoach.com
+                    </p>
+                  </div>
+                </div>
+                <Separator />
+                <DropdownMenuItem asChild>
+                  <Link href="/configuracion">
+                    <User className="mr-2 h-4 w-4" />
+                    Configuración
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/configuracion/historial">
+                    <Clock className="mr-2 h-4 w-4" />
+                    Historial Actividad
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem>Cerrar Sesión</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

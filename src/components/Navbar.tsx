@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Moon, Settings, Sun, User } from "lucide-react";
+import { Clock, LogOut, Moon, Settings, Sun, User } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
@@ -14,8 +14,15 @@ import {
 import { Button } from "./ui/button";
 import { useTheme } from "next-themes";
 import { SidebarTrigger, useSidebar } from "./ui/sidebar";
+import { usePathname } from "next/navigation";
 
 const Navbar = () => {
+  const pathname = usePathname(); // ← DETECTA RUTA
+
+  // ← OCULTA COMPLETO EN LANDING
+  if (pathname === "/") {
+    return <div className="h-0 border-b-0" />; // Espacio vacío invisible
+  }
   const { theme, setTheme } = useTheme();
   const { toggleSidebar } = useSidebar();
   return (
@@ -54,23 +61,27 @@ const Navbar = () => {
           <DropdownMenuTrigger>
             <Avatar>
               <AvatarImage src="https://avatars.githubusercontent.com/u/1486366" />
-              <AvatarFallback>Carolayn</AvatarFallback>
+              <AvatarFallback>NY</AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent sideOffset={10}>
             <DropdownMenuLabel>Mi cuenta</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="h-[1.2rem] w-[1.2rem] mr-2" />
-              Perfil
+            <DropdownMenuItem asChild>
+              <Link href="/configuracion">
+                <Settings className="h-[1.2rem] w-[1.2rem] mr-2" />
+                Ajustes
+              </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="h-[1.2rem] w-[1.2rem] mr-2" />
-              Ajustes
+            <DropdownMenuItem asChild>
+              <Link href="/configuracion/historial">
+                <Clock className="h-[1.2rem] w-[1.2rem] mr-2" />
+                Historial Actividad
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem variant="destructive">
               <LogOut className="h-[1.2rem] w-[1.2rem] mr-2" />
-              Cerrar sesión
+              Cerrar Sesión
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
