@@ -125,7 +125,7 @@ const AppSidebar = () => {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/Planes-trabajo">
+                  <Link href="/dashboard/Planes-trabajo">
                     <ClipboardList />
                     <span>Planes de trabajo</span>
                   </Link>
@@ -134,7 +134,7 @@ const AppSidebar = () => {
 
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/capacitaciones">
+                  <Link href="/dashboard/capacitaciones">
                     <GraduationCap />
                     <span>Capacitaciones</span>
                   </Link>
@@ -159,7 +159,7 @@ const AppSidebar = () => {
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <Link href="/reportes">
+                      <Link href="/dashboard/reportes">
                         <BarChart3 />
                         <span>Ver reportes</span>
                       </Link>
@@ -180,7 +180,7 @@ const AppSidebar = () => {
               {/* Usuarios */}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/configuracion/usuarios">
+                  <Link href="/dashboard/configuracion/usuarios">
                     <Users2 />
                     <span>Usuarios</span>
                   </Link>
@@ -191,7 +191,7 @@ const AppSidebar = () => {
               {/* Configuración */}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link href="/configuracion">
+                  <Link href="/dashboard/configuracion">
                     <Settings />
                     <span>Configuración</span>
                   </Link>
@@ -229,13 +229,13 @@ const AppSidebar = () => {
                 </div>
                 <Separator />
                 <DropdownMenuItem asChild>
-                  <Link href="/configuracion">
+                  <Link href="/dashboard/configuracion">
                     <User className="mr-2 h-4 w-4" />
                     Configuración
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/configuracion/historial">
+                  <Link href="/dashboard/configuracion/historial">
                     <Clock className="mr-2 h-4 w-4" />
                     Historial Actividad
                   </Link>

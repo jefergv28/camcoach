@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,33 +12,78 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
-import { ArrowRight, Mail, Lock, User } from "lucide-react";
+import { ArrowRight, Mail, Lock, User, AlertCircle, CheckCircle } from "lucide-react";
 
 export default function RegisterPage() {
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const router = useRouter();
+
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock: guarda sesión como nuevo usuario
-    localStorage.setItem(
-      "userCamCoach",
-      JSON.stringify({ nombre, email, rol: "cliente" }),
-    );
-    window.location.href = "/";
+    setError(null);
+    setSuccess(null);
+    setLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:8000/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 400 && data.detail.includes("registrado")) {
+          throw new Error("El email ya está registrado. Prueba con otro.");
+        } else if (response.status === 422) {
+          throw new Error("Datos inválidos. Verifica el email y la contraseña (mínimo 8 caracteres).");
+        } else {
+          throw new Error(data.detail || "Error al crear la cuenta");
+        }
+      }
+
+      // Éxito: el backend devuelve el usuario creado
+      setSuccess("¡Cuenta creada exitosamente! Ahora inicia sesión.");
+
+      // Limpia el form
+      setNombre("");
+      setEmail("");
+      setPassword("");
+
+      // Redirigir al login después de 2 segundos (o inmediato si prefieres)
+      setTimeout(() => {
+        router.push("/login");
+      }, 2000);
+
+    } catch (err: any) {
+      setError(err.message || "Ocurrió un error inesperado");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      {/* Header como login/landing */}
+      {/* Header */}
       <div className="absolute top-0 left-0 right-0 border-b bg-primary-foreground/95 backdrop-blur z-50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg  flex items-center justify-center">
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-sm">
-                  <img src="logo.svg" alt="" />
+                  <img src="logo.svg" alt="CamCoach Logo" />
                 </span>
               </div>
               <Link
@@ -51,7 +97,7 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* Formulario registro - Mismo estilo login */}
+      {/* Formulario */}
       <div className="w-full max-w-md">
         <Card className="bg-primary-foreground border-border/50 shadow-xl">
           <CardHeader className="text-center space-y-2">
@@ -64,6 +110,20 @@ export default function RegisterPage() {
           </CardHeader>
           <CardContent className="p-6 lg:p-8 space-y-6">
             <form onSubmit={handleRegister} className="space-y-4">
+              {/* Mensajes de éxito o error */}
+              {error && (
+                <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {error}
+                </div>
+              )}
+              {success && (
+                <div className="bg-green-100/80 text-green-800 dark:bg-green-900/30 dark:text-green-300 text-sm p-3 rounded-md flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  {success}
+                </div>
+              )}
+
               {/* Campo Nombre */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
@@ -78,6 +138,7 @@ export default function RegisterPage() {
                     value={nombre}
                     onChange={(e) => setNombre(e.target.value)}
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -96,6 +157,7 @@ export default function RegisterPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -114,6 +176,7 @@ export default function RegisterPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -121,12 +184,13 @@ export default function RegisterPage() {
               <Button
                 type="submit"
                 className="w-full h-12 text-lg bg-primary hover:bg-primary/90 text-primary-foreground"
+                disabled={loading}
               >
-                Registrarse Gratis <ArrowRight className="ml-2 h-4 w-4" />
+                {loading ? "Creando cuenta..." : "Registrarse Gratis"}
+                {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
             </form>
 
-            {/* Link login */}
             <div className="pt-4 border-t border-border/50 text-center">
               <p className="text-sm text-muted-foreground">
                 ¿Ya tienes cuenta?{" "}
