@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -31,26 +31,75 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+// Tipos para TypeScript
+type ResumenCliente = {
+  id: number;
+  nombre: string;
+  ingresos: number;
+  eventos: number;
+  retencion: number;
+};
+
+type ReporteData = {
+  ingresos_totales: number;
+  eventos_totales: number;
+  tareas_completadas: number;
+  retencion_promedio: number;
+  clientes: ResumenCliente[];
+};
+
+const API_URL = "http://localhost:8000/reportes/";
+
 const ReportesPage = () => {
   const [clienteFiltro, setClienteFiltro] = useState("todos");
   const [periodo, setPeriodo] = useState("mes");
 
-  // Datos mock
-  const clientesData = [
-    { id: 1, nombre: "Luna Star", ingresos: 7500, eventos: 25, retencion: 92 },
-    { id: 2, nombre: "Camila Fox", ingresos: 5000, eventos: 20, retencion: 78 },
-  ];
+  // Estado inicial vacío esperando al backend
+  const [reporteData, setReporteData] = useState<ReporteData>({
+    ingresos_totales: 0,
+    eventos_totales: 0,
+    tareas_completadas: 0,
+    retencion_promedio: 0,
+    clientes: [],
+  });
+
+  // Fetch a la API de FastAPI
+  useEffect(() => {
+    const cargarReporte = async () => {
+      try {
+        const response = await fetch(API_URL, { credentials: "include" });
+        if (response.ok) {
+          const data = await response.json();
+          setReporteData(data);
+        }
+      } catch (error) {
+        console.error("Error al cargar los reportes:", error);
+      }
+    };
+    cargarReporte();
+  }, []);
 
   // Filtrado dinámico
   const clientesFiltrados = useMemo(() => {
-    if (clienteFiltro === "todos") return clientesData;
-    return clientesData.filter((c) =>
-      c.nombre.toLowerCase().includes(clienteFiltro),
+    if (clienteFiltro === "todos") return reporteData.clientes;
+    return reporteData.clientes.filter((c) =>
+      c.id.toString() === clienteFiltro
     );
-  }, [clienteFiltro]);
+  }, [clienteFiltro, reporteData.clientes]);
 
   // KPIs dinámicos
   const kpis = useMemo(() => {
+    // Si vemos todos, usamos los totales que calculó el backend
+    if (clienteFiltro === "todos") {
+      return {
+        ingresos: reporteData.ingresos_totales,
+        eventos: reporteData.eventos_totales,
+        tareasCompletadas: reporteData.tareas_completadas,
+        retencion: reporteData.retencion_promedio,
+      };
+    }
+
+    // Si filtramos por cliente, recalculamos solo para ese cliente
     const ingresos = clientesFiltrados.reduce((acc, c) => acc + c.ingresos, 0);
     const eventos = clientesFiltrados.reduce((acc, c) => acc + c.eventos, 0);
     const retencion =
@@ -64,10 +113,10 @@ const ReportesPage = () => {
     return {
       ingresos,
       eventos,
-      tareasCompletadas: 32,
+      tareasCompletadas: reporteData.tareas_completadas, // Las tareas siguen siendo globales por ahora
       retencion,
     };
-  }, [clientesFiltrados]);
+  }, [clientesFiltrados, reporteData, clienteFiltro]);
 
   // Exportar PDF profesional
   const generarPDF = () => {
@@ -86,7 +135,7 @@ const ReportesPage = () => {
       <body>
         <h1>Reporte CamCoach</h1>
         <p><strong>Periodo:</strong> ${periodo.toUpperCase()}</p>
-        <p><strong>Ingresos Totales:</strong> $${kpis.ingresos.toLocaleString()}</p>
+        <p><strong>Ingresos Totales:</strong> $${kpis.ingresos.toLocaleString("es-CO")}</p>
         <p><strong>Eventos:</strong> ${kpis.eventos}</p>
         <p><strong>Retención Promedio:</strong> ${kpis.retencion}%</p>
 
@@ -106,7 +155,7 @@ const ReportesPage = () => {
                 (c) => `
               <tr>
                 <td>${c.nombre}</td>
-                <td>$${c.ingresos.toLocaleString()}</td>
+                <td>$${c.ingresos.toLocaleString("es-CO")}</td>
                 <td>${c.eventos}</td>
                 <td>${c.retencion}%</td>
               </tr>`,
@@ -121,7 +170,9 @@ const ReportesPage = () => {
     const nuevaPestana = window.open("", "_blank");
     nuevaPestana?.document.write(contenido);
     nuevaPestana?.document.close();
-    nuevaPestana?.print();
+    setTimeout(() => {
+      nuevaPestana?.print();
+    }, 500); // Pequeño retraso para asegurar que el HTML cargue
   };
 
   return (
@@ -136,19 +187,23 @@ const ReportesPage = () => {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {/* Filtro Dinámico de Clientes */}
           <Select value={clienteFiltro} onValueChange={setClienteFiltro}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-45">
               <SelectValue placeholder="Todos clientes" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos</SelectItem>
-              <SelectItem value="luna">Luna</SelectItem>
-              <SelectItem value="camila">Camila</SelectItem>
+              {reporteData.clientes.map((cliente) => (
+                <SelectItem key={cliente.id} value={cliente.id.toString()}>
+                  {cliente.nombre}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
           <Select value={periodo} onValueChange={setPeriodo}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-35">
               <SelectValue placeholder="Mes" />
             </SelectTrigger>
             <SelectContent>
@@ -158,7 +213,9 @@ const ReportesPage = () => {
             </SelectContent>
           </Select>
 
-          <Button onClick={generarPDF}>📊 Exportar PDF</Button>
+          <Button onClick={generarPDF} className="bg-slate-900 text-white hover:bg-slate-800">
+            📊 Exportar PDF
+          </Button>
         </div>
       </div>
 
@@ -169,8 +226,8 @@ const ReportesPage = () => {
             <CardTitle>Ingresos Totales</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              ${kpis.ingresos.toLocaleString()}
+            <div className="text-2xl font-bold text-green-600">
+              ${kpis.ingresos.toLocaleString("es-CO")}
             </div>
           </CardContent>
         </Card>
@@ -189,7 +246,7 @@ const ReportesPage = () => {
             <CardTitle>Tareas Completadas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{kpis.tareasCompletadas}</div>
+            <div className="text-2xl font-bold text-blue-600">{kpis.tareasCompletadas}</div>
           </CardContent>
         </Card>
 
@@ -198,31 +255,31 @@ const ReportesPage = () => {
             <CardTitle>Retención Promedio</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{kpis.retencion}%</div>
+            <div className="text-2xl font-bold text-orange-500">{kpis.retencion}%</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-card border p-4 rounded-lg">
-          <h3 className="font-semibold mb-4">Ingresos por Período</h3>
+        <div className="bg-card border p-4 rounded-lg shadow-sm">
+          <h3 className="font-semibold mb-4 text-slate-700">Ingresos por Período</h3>
           <AppBarChart />
         </div>
 
-        <div className="bg-card border p-4 rounded-lg">
-          <h3 className="font-semibold mb-4">Distribución Clientes</h3>
+        <div className="bg-card border p-4 rounded-lg shadow-sm">
+          <h3 className="font-semibold mb-4 text-slate-700">Distribución Clientes</h3>
           <AppPieChart />
         </div>
 
-        <div className="bg-card border p-4 rounded-lg lg:col-span-2">
-          <h3 className="font-semibold mb-4">Evolución Rendimiento</h3>
+        <div className="bg-card border p-4 rounded-lg lg:col-span-2 shadow-sm">
+          <h3 className="font-semibold mb-4 text-slate-700">Evolución Rendimiento</h3>
           <AppAreaChart />
         </div>
       </div>
 
       {/* Tabla */}
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>Resumen Clientes</CardTitle>
           <CardDescription>
@@ -240,18 +297,28 @@ const ReportesPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clientesFiltrados.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.nombre}</TableCell>
-                  <TableCell>${c.ingresos.toLocaleString()}</TableCell>
-                  <TableCell>{c.eventos}</TableCell>
-                  <TableCell>
-                    <Badge variant={c.retencion > 85 ? "default" : "secondary"}>
-                      {c.retencion}%
-                    </Badge>
+              {clientesFiltrados.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                    No hay datos disponibles para mostrar.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                clientesFiltrados.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.nombre}</TableCell>
+                    <TableCell className="font-semibold text-green-600">
+                      ${c.ingresos.toLocaleString("es-CO")}
+                    </TableCell>
+                    <TableCell>{c.eventos}</TableCell>
+                    <TableCell>
+                      <Badge variant={c.retencion > 85 ? "default" : "secondary"}>
+                        {c.retencion}%
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

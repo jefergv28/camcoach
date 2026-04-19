@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,55 +44,28 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { BarChart, CartesianGrid, XAxis, YAxis, Bar } from "recharts";
+import { toast } from "sonner"; // Agregado para notificaciones
 
-// Datos ejemplo (editable)
-const ingresosIniciales: Ingreso[] = [
-  {
-    id: "1",
-    fecha: "2026-02-10",
-    cliente: "Luna Star",
-    monto: 250000,
-    tipo: "sesión",
-  },
-  {
-    id: "2",
-    fecha: "2026-02-10",
-    cliente: "Camila Fox",
-    monto: 180000,
-    tipo: "producto",
-  },
-  {
-    id: "3",
-    fecha: "2026-02-12",
-    cliente: "Sofía Luna",
-    monto: 320000,
-    tipo: "sesión",
-  },
-  {
-    id: "4",
-    fecha: "2026-02-13",
-    cliente: "Valeria Dream",
-    monto: 150000,
-    tipo: "producto",
-  },
-  {
-    id: "5",
-    fecha: "2026-02-14",
-    cliente: "Luna Star",
-    monto: 280000,
-    tipo: "sesión",
-  },
-];
+import * as XLSX from "xlsx";
 
+// Tipos adaptados al Backend de FastAPI
 type Ingreso = {
-  id: string;
+  id: number;
   fecha: string; // yyyy-mm-dd
-  cliente: string;
+  cliente_id: number;
   monto: number;
-  tipo: "sesión" | "producto" | "suscripción";
+  descripcion?: string;
+  metodo_pago: "efectivo" | "transferencia" | "tarjeta";
+  estado: "pagado" | "pendiente";
 };
 
-// ← Configuración colores IGUAL al ejemplo
+type Cliente = {
+  id: number;
+  nombre: string;
+};
+
+const API_URL = "http://localhost:8000/ingresos/";
+
 const chartConfig: ChartConfig = {
   clientesTop: {
     label: "Clientes Top",
@@ -105,7 +78,8 @@ const chartConfig: ChartConfig = {
 };
 
 const IngresosPage = () => {
-  const [ingresos, setIngresos] = useState<Ingreso[]>(ingresosIniciales);
+  const [ingresos, setIngresos] = useState<Ingreso[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [ingresoEditando, setIngresoEditando] = useState<Ingreso | null>(null);
@@ -113,7 +87,66 @@ const IngresosPage = () => {
     "diario",
   );
 
-  // Datos para gráfico mensual (igual estructura ejemplo)
+  const handleExportExcel = () => {
+    if (ingresos.length === 0) {
+      toast.error("No hay datos para exportar");
+      return;
+    }
+
+    // 1. Preparamos los datos limpios para el Excel
+    const datosExportar = ingresos.map((ingreso) => ({
+      Fecha: ingreso.fecha,
+      Cliente: getNombreCliente(ingreso.cliente_id),
+      "Método de Pago": ingreso.metodo_pago,
+      Estado: ingreso.estado,
+      Descripción: ingreso.descripcion || "Sin descripción",
+      "Monto ($)": Number(ingreso.monto),
+    }));
+
+    // 2. Creamos la hoja y el libro de Excel
+    const hoja = XLSX.utils.json_to_sheet(datosExportar);
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hoja, "Ingresos");
+
+    // 3. Generamos y descargamos el archivo
+    XLSX.writeFile(libro, "Reporte_Ingresos_CAMCOAH.xlsx");
+    toast.success("Excel descargado correctamente");
+  };
+  // Fetch a la API
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        const resIngresos = await fetch(API_URL, { credentials: "include" });
+        if (resIngresos.ok) setIngresos(await resIngresos.json());
+
+        const resClientes = await fetch("http://localhost:8000/clientes/", {
+          credentials: "include",
+        });
+        if (resClientes.ok) setClientes(await resClientes.json());
+      } catch (error) {
+        console.error("Error al conectar con el backend:", error);
+        toast.error("Error al cargar los datos del servidor");
+      }
+    };
+    cargarDatos();
+  }, []);
+
+  // Función para obtener nombre del cliente por ID
+  const getNombreCliente = (id: number) => {
+    const cliente = clientes.find((c) => c.id === id);
+    return cliente ? cliente.nombre : "Desconocido";
+  };
+
+  // Cálculos dinámicos
+  const hoy = new Date().toISOString().split("T")[0];
+  const totalIngresos = ingresos
+    .filter((i) => i.estado === "pagado")
+    .reduce((sum, i) => sum + Number(i.monto), 0);
+  const ingresosHoy = ingresos
+    .filter((i) => i.fecha === hoy && i.estado === "pagado")
+    .reduce((sum, i) => sum + Number(i.monto), 0);
+
+  // Gráfico (Datos estáticos de ejemplo por ahora, se puede dinamizar luego)
   const chartData = [
     { month: "Enero", clientesTop: 1860, restoClientes: 800 },
     { month: "Febrero", clientesTop: 2050, restoClientes: 1200 },
@@ -123,44 +156,70 @@ const IngresosPage = () => {
     { month: "Junio", clientesTop: 2210, restoClientes: 1400 },
   ];
 
-  const totalIngresos = ingresos.reduce((sum, i) => sum + i.monto, 0);
-  const ingresosHoy = ingresos
-    .filter((i) => i.fecha === "2026-02-14")
-    .reduce((sum, i) => sum + i.monto, 0);
-
-  const handleSaveIngreso = (
+  const handleSaveIngreso = async (
     fecha: string,
-    cliente: string,
+    cliente_id: number,
     monto: number,
-    tipo: "sesión" | "producto" | "suscripción",
+    metodo_pago: "efectivo" | "transferencia" | "tarjeta",
+    estado: "pagado" | "pendiente",
+    descripcion: string,
   ) => {
-    if (editMode && ingresoEditando) {
-      setIngresos(
-        ingresos.map((i) =>
-          i.id === ingresoEditando.id
-            ? { ...i, fecha, cliente, monto, tipo }
-            : i,
-        ),
-      );
-    } else {
-      setIngresos([
-        ...ingresos,
-        {
-          id: crypto.randomUUID(),
-          fecha,
-          cliente,
-          monto,
-          tipo,
-        },
-      ]);
+    const datosIngreso = {
+      fecha,
+      cliente_id,
+      monto,
+      metodo_pago,
+      estado,
+      descripcion,
+    };
+
+    try {
+      const url =
+        editMode && ingresoEditando
+          ? `${API_URL}${ingresoEditando.id}`
+          : API_URL;
+      const response = await fetch(url, {
+        method: editMode ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datosIngreso),
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const ingresoServidor = await response.json();
+        setIngresos(
+          editMode
+            ? ingresos.map((i) =>
+                i.id === ingresoServidor.id ? ingresoServidor : i,
+              )
+            : [ingresoServidor, ...ingresos],
+        );
+        toast.success(editMode ? "Ingreso actualizado" : "Ingreso registrado");
+      } else {
+        toast.error("Error al guardar");
+      }
+    } catch {
+      toast.error("Error de conexión");
     }
+
     setDialogOpen(false);
     setEditMode(false);
     setIngresoEditando(null);
   };
 
-  const handleDeleteIngreso = (id: string) => {
-    setIngresos(ingresos.filter((i) => i.id !== id));
+  const handleDeleteIngreso = async (id: number) => {
+    try {
+      const response = await fetch(`${API_URL}${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (response.ok) {
+        setIngresos(ingresos.filter((i) => i.id !== id));
+        toast.success("Registro eliminado");
+      }
+    } catch {
+      toast.error("Error al eliminar");
+    }
   };
 
   const handleEditIngreso = (ingreso: Ingreso) => {
@@ -168,14 +227,6 @@ const IngresosPage = () => {
     setEditMode(true);
     setDialogOpen(true);
   };
-
-  const clientes = [
-    "Luna Star",
-    "Camila Fox",
-    "Sofía Luna",
-    "Valeria Dream",
-    "Nuevo Cliente",
-  ];
 
   return (
     <div className="space-y-8 p-8 max-w-7xl mx-auto">
@@ -203,6 +254,7 @@ const IngresosPage = () => {
           <Button
             onClick={() => {
               setEditMode(false);
+              setIngresoEditando(null);
               setDialogOpen(true);
             }}
             className="gap-2"
@@ -217,15 +269,15 @@ const IngresosPage = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-2xl font-bold text-green-600">
-              ${totalIngresos.toLocaleString()}
+              ${totalIngresos.toLocaleString("es-CO")}
             </CardTitle>
-            <CardDescription>Total General</CardDescription>
+            <CardDescription>Total General (Pagado)</CardDescription>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-2xl font-bold text-blue-600">
-              ${ingresosHoy.toLocaleString()}
+              ${ingresosHoy.toLocaleString("es-CO")}
             </CardTitle>
             <CardDescription>
               Hoy {new Date().toLocaleDateString("es-CO")}
@@ -241,9 +293,9 @@ const IngresosPage = () => {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
-        {/* GRÁFICO PRINCIPAL - IGUAL AL EJEMPLO */}
+        {/* GRÁFICO PRINCIPAL */}
         <div className="lg:col-span-2">
-          <Card className="h-[500px]">
+          <Card className="h-125">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5" />
@@ -299,28 +351,49 @@ const IngresosPage = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {ingresos
-                  .slice(-5)
-                  .reverse()
-                  .map((ingreso) => (
-                    <div
-                      key={ingreso.id}
-                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted group"
-                    >
-                      <div>
-                        <div className="font-medium">{ingreso.cliente}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {ingreso.fecha}
+                {ingresos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No hay ingresos registrados
+                  </p>
+                ) : (
+                  [...ingresos]
+                    .reverse()
+                    .slice(0, 5)
+                    .map((ingreso) => (
+                      <div
+                        key={ingreso.id}
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted group transition-colors"
+                      >
+                        <div>
+                          <div className="font-medium">
+                            {getNombreCliente(ingreso.cliente_id)}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {ingreso.fecha} | {ingreso.metodo_pago}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-lg text-green-600">
+                            ${Number(ingreso.monto).toLocaleString("es-CO")}
+                          </div>
+                          <Badge
+                            variant={
+                              ingreso.estado === "pagado"
+                                ? "default"
+                                : "secondary"
+                            }
+                            className={
+                              ingreso.estado === "pendiente"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : ""
+                            }
+                          >
+                            {ingreso.estado}
+                          </Badge>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-bold text-lg text-green-600">
-                          ${ingreso.monto.toLocaleString()}
-                        </div>
-                        <Badge variant="outline">{ingreso.tipo}</Badge>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -332,7 +405,7 @@ const IngresosPage = () => {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Todos los Ingresos</CardTitle>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleExportExcel}>
               Exportar Excel
             </Button>
           </div>
@@ -343,7 +416,8 @@ const IngresosPage = () => {
               <TableRow>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Cliente</TableHead>
-                <TableHead>Tipo</TableHead>
+                <TableHead>Método</TableHead>
+                <TableHead>Estado</TableHead>
                 <TableHead className="text-right">Monto</TableHead>
                 <TableHead>Acciones</TableHead>
               </TableRow>
@@ -352,18 +426,23 @@ const IngresosPage = () => {
               {ingresos.map((ingreso) => (
                 <TableRow key={ingreso.id}>
                   <TableCell>{ingreso.fecha}</TableCell>
-                  <TableCell>{ingreso.cliente}</TableCell>
+                  <TableCell className="font-medium">
+                    {getNombreCliente(ingreso.cliente_id)}
+                  </TableCell>
+                  <TableCell className="capitalize">
+                    {ingreso.metodo_pago}
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant={
-                        ingreso.tipo === "sesión" ? "default" : "secondary"
+                        ingreso.estado === "pagado" ? "default" : "secondary"
                       }
                     >
-                      {ingreso.tipo}
+                      {ingreso.estado}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right font-medium text-green-600">
-                    ${ingreso.monto.toLocaleString()}
+                    ${Number(ingreso.monto).toLocaleString("es-CO")}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -400,6 +479,7 @@ const IngresosPage = () => {
             clientes={clientes}
             ingresoEditando={ingresoEditando}
             editMode={editMode}
+            onCancel={() => setDialogOpen(false)}
           />
         </DialogContent>
       </Dialog>
@@ -407,19 +487,41 @@ const IngresosPage = () => {
   );
 };
 
-const IngresoForm = ({ onSave, clientes, ingresoEditando, editMode }: any) => {
+// COMPONENTE DE FORMULARIO
+const IngresoForm = ({
+  onSave,
+  clientes,
+  ingresoEditando,
+  editMode,
+  onCancel,
+}: any) => {
   const [fecha, setFecha] = useState(
     ingresoEditando?.fecha || new Date().toISOString().split("T")[0],
   );
-  const [cliente, setCliente] = useState(ingresoEditando?.cliente || "");
+  const [clienteId, setClienteId] = useState(
+    ingresoEditando?.cliente_id?.toString() || "",
+  );
   const [monto, setMonto] = useState(ingresoEditando?.monto?.toString() || "");
-  const [tipo, setTipo] = useState<"sesión" | "producto" | "suscripción">(
-    (ingresoEditando?.tipo as any) || "sesión",
+  const [metodoPago, setMetodoPago] = useState<
+    "efectivo" | "transferencia" | "tarjeta"
+  >(ingresoEditando?.metodo_pago || "efectivo");
+  const [estado, setEstado] = useState<"pagado" | "pendiente">(
+    ingresoEditando?.estado || "pagado",
+  );
+  const [descripcion, setDescripcion] = useState(
+    ingresoEditando?.descripcion || "",
   );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(fecha, cliente, parseInt(monto), tipo);
+    onSave(
+      fecha,
+      Number(clienteId),
+      Number(monto),
+      metodoPago,
+      estado,
+      descripcion,
+    );
   };
 
   return (
@@ -433,55 +535,87 @@ const IngresoForm = ({ onSave, clientes, ingresoEditando, editMode }: any) => {
           required
         />
       </div>
+
       <div>
         <Label>Cliente</Label>
-        <Select value={cliente} onValueChange={setCliente} required>
+        <Select value={clienteId} onValueChange={setClienteId} required>
           <SelectTrigger>
-            <SelectValue placeholder="Selecciona" />
+            <SelectValue placeholder="Selecciona un cliente" />
           </SelectTrigger>
           <SelectContent>
-            {clientes.map((c: string) => (
-              <SelectItem key={c} value={c}>
-                {c}
+            {clientes.map((c: Cliente) => (
+              <SelectItem key={c.id} value={c.id.toString()}>
+                {c.nombre}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
+
       <div>
         <Label>Monto ($)</Label>
         <Input
           type="number"
           value={monto}
           onChange={(e) => setMonto(e.target.value)}
-          placeholder="250000"
+          placeholder="Ej. 250000"
           required
         />
       </div>
-      <div>
-        <Label>Tipo</Label>
-        <Select value={tipo} onValueChange={(v: any) => setTipo(v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="sesión">💬 Sesión</SelectItem>
-            <SelectItem value="producto">🛍️ Producto</SelectItem>
-            <SelectItem value="suscripción">🔄 Suscripción</SelectItem>
-          </SelectContent>
-        </Select>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Método de Pago</Label>
+          <Select
+            value={metodoPago}
+            onValueChange={(v: any) => setMetodoPago(v)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="efectivo">💵 Efectivo</SelectItem>
+              <SelectItem value="transferencia">🏦 Transferencia</SelectItem>
+              <SelectItem value="tarjeta">💳 Tarjeta</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label>Estado</Label>
+          <Select value={estado} onValueChange={(v: any) => setEstado(v)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pagado">✅ Pagado</SelectItem>
+              <SelectItem value="pendiente">⏳ Pendiente</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      <div>
+        <Label>Descripción (Opcional)</Label>
+        <Input
+          value={descripcion}
+          onChange={(e) => setDescripcion(e.target.value)}
+          placeholder="Concepto del ingreso..."
+        />
+      </div>
+
       <div className="flex gap-2 pt-4">
-        <Button type="submit" className="flex-1">
+        <Button
+          type="submit"
+          className="flex-1 bg-green-600 hover:bg-green-700"
+        >
           {editMode ? "Actualizar" : "Guardar"}
         </Button>
         <Button
           type="button"
           variant="outline"
           className="flex-1"
-          onClick={() => {
-            /* reset form */
-          }}
+          onClick={onCancel}
         >
           Cancelar
         </Button>

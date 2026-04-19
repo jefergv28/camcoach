@@ -4,28 +4,8 @@ import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Bell,
-  User,
-  Clock,
-  MessageCircle,
-  Mail,
-  Edit3,
-  Trash2,
-  X,
-  Phone,
-} from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Bell, Clock, Edit3, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,69 +16,75 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 type Evento = {
-  id: string;
+  id: number;
   fecha: string;
   hora?: string;
   titulo: string;
   cliente: string;
-  telefono?: string;
-  email?: string;
   descripcion?: string;
   miRecordatorio: boolean;
   notificarCliente: boolean;
   tipoNotifCliente?: "whatsapp" | "email" | "sms";
 };
 
+type Cliente = {
+  id?: number;
+  nombre: string;
+  telefono?: string;
+  email?: string;
+};
+
+const API_URL = "http://localhost:8000/eventos/";
+
 const CalendarioPage = () => {
-  const [fechaSeleccionada, setFechaSeleccionada] = useState<
-    Date | undefined
-  >();
+  const [fechaSeleccionada, setFechaSeleccionada] = useState<Date | undefined>(
+    new Date(),
+  );
   const [eventos, setEventos] = useState<Evento[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [eventoEditando, setEventoEditando] = useState<Evento | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [eventoAEliminar, setEventoAEliminar] = useState<Evento | null>(null);
 
-  const clientesData = [
-    {
-      nombre: "Luna Star",
-      telefono: "+573001234567",
-      email: "luna@example.com",
-    },
-    {
-      nombre: "Camila Fox",
-      telefono: "+573009876543",
-      email: "camila@example.com",
-    },
-    {
-      nombre: "Sofía Luna",
-      telefono: "+573001112223",
-      email: "sofia@example.com",
-    },
-    {
-      nombre: "Valeria Dream",
-      telefono: "+573004445556",
-      email: "valeria@example.com",
-    },
-  ];
-
+  // Cargar eventos y clientes
   useEffect(() => {
-    const saved = localStorage.getItem("eventosCalendario");
-    if (saved) setEventos(JSON.parse(saved));
+    const cargarDatos = async () => {
+      try {
+        const resEventos = await fetch(API_URL, {
+          method: "GET",
+          credentials: "include",
+        });
+        if (resEventos.ok) setEventos(await resEventos.json());
+
+        const resClientes = await fetch("http://localhost:8000/clientes/", {
+          method: "GET",
+          credentials: "include",
+        });
+        if (resClientes.ok) setClientes(await resClientes.json());
+      } catch (error) {
+        console.error("Error al conectar con el backend:", error);
+      }
+    };
+    cargarDatos();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem("eventosCalendario", JSON.stringify(eventos));
-  }, [eventos]);
 
   const eventosDelDia = eventos.filter(
     (e) => e.fecha === fechaSeleccionada?.toISOString().split("T")[0],
   );
 
-  const handleSaveEvento = (
+  const proximosEventos = [...eventos]
+    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+    .filter(
+      (e) => new Date(e.fecha) >= new Date(new Date().setHours(0, 0, 0, 0)),
+    )
+    .slice(0, 6);
+
+  const handleSaveEvento = async (
     titulo: string,
     clienteNombre: string,
     descripcion?: string,
@@ -109,93 +95,96 @@ const CalendarioPage = () => {
   ) => {
     if (!fechaSeleccionada || !titulo || !clienteNombre) return;
 
-    const clienteData = clientesData.find((c) => c.nombre === clienteNombre);
+    const datosEvento = {
+      titulo,
+      fecha: fechaSeleccionada.toISOString().split("T")[0],
+      hora,
+      cliente: clienteNombre,
+      descripcion,
+      miRecordatorio,
+      notificarCliente,
+      tipoNotifCliente,
+    };
 
-    if (editMode && eventoEditando) {
-      // EDITAR
-      setEventos(
-        eventos.map((e) =>
-          e.id === eventoEditando.id
-            ? {
-                ...e,
-                titulo,
-                cliente: clienteNombre,
-                telefono: clienteData?.telefono,
-                email: clienteData?.email,
-                descripcion,
-                hora,
-                miRecordatorio,
-                notificarCliente,
-                tipoNotifCliente,
-              }
-            : e,
-        ),
-      );
-    } else {
-      // NUEVO
-      const nuevoEvento: Evento = {
-        id: crypto.randomUUID(),
-        fecha: fechaSeleccionada.toISOString().split("T")[0],
-        hora,
-        titulo,
-        cliente: clienteNombre,
-        telefono: clienteData?.telefono,
-        email: clienteData?.email,
-        descripcion,
-        miRecordatorio,
-        notificarCliente,
-        tipoNotifCliente,
-      };
-      setEventos([nuevoEvento, ...eventos]);
+    try {
+      const url =
+        editMode && eventoEditando ? `${API_URL}${eventoEditando.id}` : API_URL;
+      const response = await fetch(url, {
+        method: editMode ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datosEvento),
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const eventoServidor = await response.json();
+        setEventos(
+          editMode
+            ? eventos.map((e) =>
+                e.id === eventoServidor.id ? eventoServidor : e,
+              )
+            : [eventoServidor, ...eventos],
+        );
+        setDialogOpen(false);
+        setEditMode(false);
+        setEventoEditando(null);
+        toast.success(editMode ? "Evento actualizado" : "Evento creado");
+      }
+    } catch {
+      toast.error("Error de conexión");
     }
+  };
 
-    setDialogOpen(false);
-    setEditMode(false);
-    setEventoEditando(null);
+  const handleDeleteEvento = async () => {
+    if (!eventoAEliminar) return;
+    try {
+      const response = await fetch(`${API_URL}${eventoAEliminar.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (response.ok) {
+        setEventos(eventos.filter((e) => e.id !== eventoAEliminar.id));
+        setDeleteDialogOpen(false);
+        setEventoAEliminar(null);
+        toast.success("Evento eliminado");
+      } else {
+        toast.error("No se pudo eliminar el evento ");
+      }
+    } catch {
+      toast.error("Error al eliminar");
+    }
   };
 
   const handleEditEvento = (evento: Evento) => {
     setEventoEditando(evento);
-    setFechaSeleccionada(new Date(evento.fecha));
+    const [year, month, day] = evento.fecha.split("-").map(Number);
+    setFechaSeleccionada(new Date(year, month - 1, day));
     setEditMode(true);
     setDialogOpen(true);
   };
 
-  const handleDeleteEvento = () => {
-    if (eventoAEliminar) {
-      setEventos(eventos.filter((e) => e.id !== eventoAEliminar.id));
-      setDeleteDialogOpen(false);
-      setEventoAEliminar(null);
-    }
-  };
-
-  const handleNotificarAhora = (evento: Evento) => {
-    const clienteData = clientesData.find((c) => c.nombre === evento.cliente);
-    if (!clienteData || !evento.tipoNotifCliente) return;
-
-    if (evento.tipoNotifCliente === "whatsapp") {
-      window.open(
-        `https://wa.me/${clienteData.telefono?.replace("+57", "57") || ""}?text=🔔 *Recordatorio Evento*: ${evento.titulo}%0A${evento.fecha} ${evento.hora || ""}`,
-      );
-    } else if (evento.tipoNotifCliente === "email") {
-      window.location.href = `mailto:${clienteData.email || ""}?subject=Recordatorio: ${evento.titulo}`;
-    }
-  };
-
   return (
     <div className="space-y-8 p-8 max-w-7xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Bell className="h-8 w-8 text-blue-500" />
-        <h1 className="text-3xl font-bold">Calendario de Eventos</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Bell className="h-8 w-8 text-blue-500" />
+          <h1 className="text-3xl font-bold tracking-tight">
+            Gestión de Agenda
+          </h1>
+        </div>
+        <Badge className="text-blue-600 dark:text-blue-200 border border-blue-200 dark:border-blue-500 bg-blue-50 dark:bg-blue-900 px-4 py-1">
+          {eventos.length} Eventos
+        </Badge>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-8">
+        {/* Calendario */}
         <div className="lg:col-span-2">
-          <div className="bg-card border rounded-2xl p-8 shadow-xl">
+          <div className="bg-card dark:bg-slate-800 border rounded-2xl p-8 shadow-lg">
             <h3 className="text-lg font-semibold mb-6 text-center">
               Selecciona fecha
             </h3>
-            <div className="mx-auto">
+            <div className="mx-auto flex justify-center">
               <Calendar
                 mode="single"
                 selected={fechaSeleccionada}
@@ -205,128 +194,143 @@ const CalendarioPage = () => {
                   setEditMode(false);
                   setEventoEditando(null);
                 }}
-                className="w-full max-w-none [--cell-size:90px]"
+                className="w-full max-w-prose [--cell-size:80px]"
                 showOutsideDays
               />
             </div>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-orange-500" />
-            <h2 className="text-xl font-semibold">
-              {fechaSeleccionada?.toLocaleDateString("es-CO", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              }) || "Selecciona fecha"}
-            </h2>
-          </div>
-
-          {eventosDelDia.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <User className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg">No hay eventos</p>
-              <p className="text-sm">¡Agrega el primero!</p>
+        {/* Próximos eventos y eventos del día */}
+        <div className="space-y-6">
+          {/* Hoy */}
+          <div className="bg-gray-300 dark:bg-blue-950/50 border border-orange-100 dark:border-b-blue-900 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold text-black dark:text-blue-50 flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                {fechaSeleccionada?.toLocaleDateString("es-CO", {
+                  day: "numeric",
+                  month: "short",
+                })}
+              </h2>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 text-accent-foreground hover:bg-blue-500  dark:hover:bg-blue-900"
+                onClick={() => {
+                  setEditMode(false);
+                  setEventoEditando(null);
+                  setDialogOpen(true);
+                }}
+              >
+                + Agregar
+              </Button>
             </div>
-          ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto p-2 rounded-xl bg-muted/30">
-              {eventosDelDia.map((e) => (
-                <div
-                  key={e.id}
-                  className="bg-card p-4 rounded-xl border hover:shadow-md group relative"
-                >
-                  {/* BOTONES ACCIONES */}
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all flex gap-1 bg-background p-1 rounded-full shadow-lg">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 p-0 hover:bg-blue-100"
-                      onClick={() => handleEditEvento(e)}
-                      title="Editar"
-                    >
-                      <Edit3 className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 p-0 hover:bg-red-100"
-                      onClick={() => {
-                        setEventoAEliminar(e);
-                        setDeleteDialogOpen(true);
-                      }}
-                      title="Eliminar"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-
-                  <div className="pl-12">
-                    {" "}
-                    {/* Padding para botones */}
-                    <div className="flex items-start justify-between mb-2">
-                      <Badge
-                        variant="default"
-                        className="font-semibold px-3 py-1"
-                      >
-                        {e.titulo}
-                      </Badge>
+            <div className="space-y-3">
+              {eventosDelDia.length === 0 ? (
+                <p className="text-sm text-blue-400 dark:text-white italic text-center py-4">
+                  No hay citas para este día
+                </p>
+              ) : (
+                eventosDelDia.map((e) => (
+                  <div
+                    key={e.id}
+                    className="bg-blue-200/50 dark:bg-slate-900 p-3 rounded-xl border border-b-pink-800 dark:border-b-pink-800 shadow-sm group relative"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                          {e.titulo}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          👤 {e.cliente} {e.hora && `| 🕒 ${e.hora}`}
+                        </p>
+                      </div>
                       <div className="flex gap-1">
-                        {e.miRecordatorio && (
-                          <Bell className="h-4 w-4 text-yellow-500" />
-                        )}
-                        {e.notificarCliente &&
-                          e.tipoNotifCliente === "whatsapp" && (
-                            <MessageCircle
-                              className="h-4 w-4 text-green-500 cursor-pointer hover:scale-110"
-                              onClick={() => handleNotificarAhora(e)}
-                            />
-                          )}
-                        {e.notificarCliente &&
-                          e.tipoNotifCliente === "email" && (
-                            <Mail
-                              className="h-4 w-4 text-blue-500 cursor-pointer hover:scale-110"
-                              onClick={() => handleNotificarAhora(e)}
-                            />
-                          )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 p-0 hover:bg-red-100"
+                          onClick={() => {
+                            setEventoAEliminar(e); // <--- Aquí asignas el evento que vas a eliminar
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 p-0 hover:bg-blue-100"
+                          onClick={() => handleEditEvento(e)} // <--- Aquí la usas
+                        >
+                          <Edit3 className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="text-sm mb-1">
-                      👤 <span className="font-medium">{e.cliente}</span>
-                      {e.hora && <span> | 🕒 {e.hora}</span>}
-                    </div>
-                    {e.descripcion && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {e.descripcion}
-                      </p>
-                    )}
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Próximos eventos */}
+          <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5">
+            <h2 className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2 mb-4">
+              <Bell className="h-4 w-4 text-blue-500" />
+              Próximos en Agenda
+            </h2>
+            <div className="space-y-3">
+              {proximosEventos.length === 0 ? (
+                <p className="text-sm text-slate-400 dark:text-slate-300 italic text-center py-4">
+                  Agenda despejada
+                </p>
+              ) : (
+                proximosEventos.map((e) => (
+                  <div
+                    key={e.id}
+                    className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-400 transition-colors shadow-sm"
+                  >
+                    <div className="bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 text-[10px] font-bold px-2 py-1 rounded flex flex-col items-center min-w-11.25">
+                      <span>
+                        {new Date(e.fecha.replace(/-/g, "/"))
+                          .toLocaleDateString("es-CO", { month: "short" })
+                          .toUpperCase()}
+                      </span>
+                      <span className="text-sm">
+                        {new Date(e.fecha.replace(/-/g, "/")).getDate()}
+                      </span>
+                    </div>
+                    <div className="overflow-hidden">
+                      <p className="font-semibold text-xs truncate text-slate-700 dark:text-slate-200">
+                        {e.titulo}
+                      </p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                        {e.cliente}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* DIALOGO CREAR/EDITAR */}
+      {/* Diálogo de Evento */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md sm:max-w-lg">
-          <DialogTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            {editMode ? "Editar Evento" : "Nuevo Evento"}
-          </DialogTitle>
+          <DialogTitle>{editMode ? "Editar Evento" : "Nueva Cita"}</DialogTitle>
           <EventoForm
             onSave={handleSaveEvento}
-            clientes={clientesData}
+            clientes={clientes}
             eventoEditando={eventoEditando}
             editMode={editMode}
           />
         </DialogContent>
       </Dialog>
 
-      {/* CONFIRMAR BORRAR */}
+      {/* Diálogo de eliminación */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -334,10 +338,7 @@ const CalendarioPage = () => {
             <AlertDialogDescription>
               {eventoAEliminar && (
                 <>
-                  Se eliminará "<strong>{eventoAEliminar.titulo}</strong>" de{" "}
-                  {eventoAEliminar.cliente}.
-                  <br />
-                  Esta acción no se puede deshacer.
+                  Se eliminará <strong>{eventoAEliminar.titulo}</strong>.
                 </>
               )}
             </AlertDialogDescription>
@@ -357,214 +358,173 @@ const CalendarioPage = () => {
   );
 };
 
-interface ClienteData {
-  nombre: string;
-  telefono: string;
-  email: string;
-}
+export default CalendarioPage;
 
-interface EventoFormProps {
+type EventoFormProps = {
   onSave: (
     titulo: string,
-    clienteNombre: string,
+
+    cliente: string,
+
     descripcion?: string,
+
     hora?: string,
+
     miRecordatorio?: boolean,
+
     notificarCliente?: boolean,
+
     tipoNotifCliente?: "whatsapp" | "email" | "sms",
   ) => void;
-  clientes: ClienteData[];
-  eventoEditando?: Evento | null;
+
+  clientes: {
+    id?: number;
+
+    nombre: string;
+
+    telefono?: string;
+
+    email?: string;
+  }[];
+
+  eventoEditando: Evento | null;
+
   editMode: boolean;
-}
+};
 
 const EventoForm = ({
   onSave,
+
   clientes,
+
   eventoEditando,
+
   editMode,
 }: EventoFormProps) => {
   const [titulo, setTitulo] = useState(eventoEditando?.titulo || "");
+
   const [cliente, setCliente] = useState(eventoEditando?.cliente || "");
+
   const [descripcion, setDescripcion] = useState(
     eventoEditando?.descripcion || "",
   );
+
   const [hora, setHora] = useState(eventoEditando?.hora || "");
+
   const [miRecordatorio, setMiRecordatorio] = useState(
     eventoEditando?.miRecordatorio || false,
   );
+
   const [notificarCliente, setNotificarCliente] = useState(
     eventoEditando?.notificarCliente || false,
   );
-  const [tipoNotifCliente, setTipoNotifCliente] = useState<
-    "whatsapp" | "email" | "sms"
-  >((eventoEditando?.tipoNotifCliente as any) || "whatsapp");
 
-  const clienteSeleccionado = clientes.find((c) => c.nombre === cliente);
+  const [tipoNotifCliente, setTipoNotifCliente] = useState<
+    "whatsapp" | "email" | "sms" | undefined
+  >(eventoEditando?.tipoNotifCliente);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Formulario enviado", { titulo, cliente, descripcion, hora });
     onSave(
       titulo,
+
       cliente,
-      descripcion || undefined,
-      hora || undefined,
+
+      descripcion,
+
+      hora,
+
       miRecordatorio,
+
       notificarCliente,
+
       tipoNotifCliente,
     );
   };
 
-  const handleCancel = () => {
-    // Reset form
-    setTitulo("");
-    setCliente("");
-    setDescripcion("");
-    setHora("");
-    setMiRecordatorio(false);
-    setNotificarCliente(false);
-    setTipoNotifCliente("whatsapp");
-  };
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label>Título *</Label>
-        <Input
-          value={titulo}
-          onChange={(e) => setTitulo(e.target.value)}
-          required
-          placeholder="Ej: Sesión coaching"
+    <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+      <input
+        className="w-full border rounded p-2"
+        placeholder="Título del evento"
+        value={titulo}
+        onChange={(e) => setTitulo(e.target.value)}
+        required
+      />
+
+      <select
+        className="w-full border rounded p-2 bg-background"
+        value={cliente}
+        onChange={(e) => setCliente(e.target.value)}
+        required
+      >
+        <option value="" disabled>
+          Seleccionar cliente
+        </option>
+
+        {clientes.map((c, index) => (
+          <option key={c.id || index} value={c.nombre}>
+            {c.nombre}
+          </option>
+        ))}
+      </select>
+
+      <input
+        type="time"
+        className="w-full border rounded p-2"
+        value={hora}
+        onChange={(e) => setHora(e.target.value)}
+      />
+
+      <textarea
+        className="w-full border rounded p-2"
+        placeholder="Descripción"
+        value={descripcion}
+        onChange={(e) => setDescripcion(e.target.value)}
+      />
+
+      <label className="flex gap-2 items-center">
+        <input
+          type="checkbox"
+          checked={miRecordatorio}
+          onChange={(e) => setMiRecordatorio(e.target.checked)}
         />
-      </div>
+        Recordatorio para mí
+      </label>
 
-      <div>
-        <Label>Cliente *</Label>
-        <Select value={cliente} onValueChange={setCliente} required>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecciona cliente" />
-          </SelectTrigger>
-          <SelectContent>
-            {clientes.map((c) => (
-              <SelectItem key={c.nombre} value={c.nombre}>
-                {c.nombre}{" "}
-                {c.telefono && (
-                  <span className="text-xs text-muted-foreground ml-2">
-                    📱{c.telefono.slice(-10)}
-                  </span>
-                )}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <Label>Hora</Label>
-        <Input
-          type="time"
-          value={hora}
-          onChange={(e) => setHora(e.target.value)}
+      <label className="flex gap-2 items-center">
+        <input
+          type="checkbox"
+          checked={notificarCliente}
+          onChange={(e) => setNotificarCliente(e.target.checked)}
         />
-      </div>
+        Notificar cliente
+      </label>
 
-      <div>
-        <Label>Descripción</Label>
-        <Input
-          value={descripcion}
-          onChange={(e) => setDescripcion(e.target.value)}
-        />
-      </div>
-
-      {/* MIS RECORDATORIOS */}
-      <div className="p-3 rounded-lg border bg-muted/50">
-        <label className="flex items-center space-x-2 mb-2 cursor-pointer">
-          <Checkbox
-            checked={miRecordatorio}
-            onCheckedChange={(checked) => setMiRecordatorio(checked === true)}
-          />
-          <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-yellow-500" />
-            <span className="font-medium">
-              Mi recordatorio (notificación en mi navegador)
-            </span>
-          </div>
-        </label>
-      </div>
-
-      {/* NOTIFICAR CLIENTE */}
-      <div className="p-3 rounded-lg border bg-green-50/50 border-green-200">
-        <label className="flex items-center space-x-2 mb-3 cursor-pointer">
-          <Checkbox
-            checked={notificarCliente}
-            onCheckedChange={(checked) => {
-              setNotificarCliente(!!checked);
-              if (!checked) setTipoNotifCliente("whatsapp");
-            }}
-          />
-          <div className="flex items-center gap-2">
-            <MessageCircle className="h-4 w-4 text-green-500" />
-            <span className="font-semibold text-green-800">
-              📱 Notificar al cliente ahora
-            </span>
-          </div>
-        </label>
-
-        {notificarCliente && clienteSeleccionado && (
-          <div className="space-y-2 ml-6">
-            <p className="text-xs text-green-700">
-              Enviará a:{" "}
-              <strong>
-                {clienteSeleccionado.telefono || clienteSeleccionado.email}
-              </strong>
-            </p>
-            <Select
-              value={tipoNotifCliente}
-              onValueChange={(v: any) => setTipoNotifCliente(v)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="whatsapp">
-                  <div className="flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-green-500" />
-                    WhatsApp (recomendado)
-                  </div>
-                </SelectItem>
-                <SelectItem value="email">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-blue-500" />
-                    Email
-                  </div>
-                </SelectItem>
-                <SelectItem value="sms" disabled>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4" />
-                    SMS (próximamente)
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </div>
-
-      <div className="flex gap-3 pt-4">
-        <Button type="submit" className="flex-1">
-          {editMode ? "💾 Actualizar" : "💾 Guardar Evento"}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="flex-1"
-          onClick={handleCancel}
+      {notificarCliente && (
+        <select
+          className="w-full border rounded p-2 bg-background"
+          value={tipoNotifCliente || ""}
+          onChange={(e) =>
+            setTipoNotifCliente(e.target.value as "whatsapp" | "email" | "sms")
+          }
         >
-          {editMode ? "Cancelar" : "Cancelar"}
-        </Button>
-      </div>
+          <option value="" disabled>
+            Tipo de notificación
+          </option>
+
+          <option value="whatsapp">WhatsApp</option>
+
+          <option value="email">Email</option>
+
+          <option value="sms">SMS</option>
+        </select>
+      )}
+
+      <Button type="submit" className="w-full">
+        {editMode ? "Actualizar Evento" : "Crear Evento"}
+      </Button>
     </form>
   );
 };
-
-export default CalendarioPage;

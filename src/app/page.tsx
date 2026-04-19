@@ -5,6 +5,7 @@ import AppPieChart from "@/components/AppPieChart";
 import AppAreaChart from "@/components/AppAreaChart";
 import CardList from "@/components/CardList";
 import TodoList from "@/components/TodoList";
+import Image from "next/image";
 
 export default function LandingPage() {
   return (
@@ -16,7 +17,12 @@ export default function LandingPage() {
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg  flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-sm">
-                  <img src="/logo.svg" alt="" />
+                  <Image
+                    src="/logo.png"
+                    alt="CamCoach"
+                    width={200}
+                    height={200}
+                  />
                 </span>
               </div>
               <span className="text-xl font-bold text-foreground">
