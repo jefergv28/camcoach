@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,8 @@ type Capacitacion = {
   estado: "disponible" | "proximamente";
 };
 
+type EstadoCapacitacion = "disponible" | "proximamente";
+
 const API_URL = "http://localhost:8000/capacitaciones/";
 
 export default function CapacitacionesPage() {
@@ -55,7 +57,7 @@ export default function CapacitacionesPage() {
     descripcion: "",
     tipo: "video" as Capacitacion["tipo"],
     url: "",
-    estado: "disponible" as Capacitacion["estado"],
+    estado: "disponible" as EstadoCapacitacion,
   });
 
   // 1. Cargar capacitaciones desde el Backend
@@ -67,6 +69,7 @@ export default function CapacitacionesPage() {
         setCapacitaciones(data);
       }
     } catch (error) {
+      console.error(error);
       toast.error("Error al conectar con el servidor");
     }
   };
@@ -100,6 +103,7 @@ export default function CapacitacionesPage() {
         cargarCapacitaciones();
       }
     } catch (error) {
+      console.error(error);
       toast.error("Error al procesar la solicitud");
     }
   };
@@ -117,6 +121,7 @@ export default function CapacitacionesPage() {
         cargarCapacitaciones();
       }
     } catch (error) {
+      console.error(error);
       toast.error("Error al eliminar");
     }
   };
@@ -288,7 +293,7 @@ export default function CapacitacionesPage() {
                 <Label>Tipo de Material</Label>
                 <Select
                   value={formData.tipo}
-                  onValueChange={(v: any) =>
+                  onValueChange={(v: Capacitacion["tipo"]) =>
                     setFormData({ ...formData, tipo: v })
                   }
                 >
@@ -309,7 +314,7 @@ export default function CapacitacionesPage() {
                 <Label>Estado</Label>
                 <Select
                   value={formData.estado}
-                  onValueChange={(v: any) =>
+                  onValueChange={(v: EstadoCapacitacion) =>
                     setFormData({ ...formData, estado: v })
                   }
                 >

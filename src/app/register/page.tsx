@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -12,7 +13,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
-import { ArrowRight, Mail, Lock, User, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  ArrowRight,
+  Mail,
+  Lock,
+  User,
+  AlertCircle,
+  CheckCircle,
+} from "lucide-react";
 
 export default function RegisterPage() {
   const [nombre, setNombre] = useState("");
@@ -31,24 +39,31 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/auth/register", {
+      const response = await fetch("http://localhost:8000/usuarios/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email,
-          password,
+          username: nombre, //FastApi espera "username"
+          email: email,
+          password: password,
+          rol: "admin", // forzamos el rol de admin para la cuenta creada en registro
+          is_active: true,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        if (response.status === 400 && data.detail.includes("registrado")) {
+        //manejo de errores especifico del bakend
+        if (response.status === 400 && data.detail?.includes("registrado")) {
           throw new Error("El email ya está registrado. Prueba con otro.");
         } else if (response.status === 422) {
-          throw new Error("Datos inválidos. Verifica el email y la contraseña (mínimo 8 caracteres).");
+          console.error("Error de validacion:", data.detail);
+          throw new Error(
+            "Datos inválidos. Verifica el email y la contraseña (mínimo 8 caracteres).",
+          );
         } else {
           throw new Error(data.detail || "Error al crear la cuenta");
         }
@@ -66,9 +81,15 @@ export default function RegisterPage() {
       setTimeout(() => {
         router.push("/login");
       }, 2000);
-
-    } catch (err: any) {
-      setError(err.message || "Ocurrió un error inesperado");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : "Erro al conectar co el servidor ";
+        setError(errorMessage);
+        console.log(err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -83,7 +104,13 @@ export default function RegisterPage() {
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-sm">
-                  <img src="logo.svg" alt="CamCoach Logo" />
+                  <Image
+                    src="/logo.svg"
+                    alt="Logo"
+                    width={80}
+                    height={80}
+                    className="h-20 w-20"
+                  />
                 </span>
               </div>
               <Link

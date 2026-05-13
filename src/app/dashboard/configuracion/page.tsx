@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Phone, User, Bell, Sun, Moon, Palette, Save } from "lucide-react";
+import { Sun, Moon, Palette, Save } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -33,7 +33,7 @@ export default function ConfiguracionPage() {
     } else {
       document.documentElement.classList.remove('dark');
     }
-  }, []);
+  }, [config.tema]);
 
   const guardarConfig = () => {
     localStorage.setItem("configCamCoach", JSON.stringify(config));

@@ -20,8 +20,6 @@ import { Badge } from "@/components/ui/badge";
 import AppAreaChart from "@/components/AppAreaChart";
 import AppBarChart from "@/components/AppBarChart";
 import AppPieChart from "@/components/AppPieChart";
-import CardList from "@/components/CardList";
-import TodoList from "@/components/TodoList";
 import {
   Table,
   TableBody,
