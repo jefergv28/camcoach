@@ -12,7 +12,7 @@ import { Calendar } from "./ui/calendar";
 
 /** ---------------- TYPES ---------------- */
 type TareaItem = {
-  id: string | number;
+  id: number; // 🎯 Forzamos que sea número para sincronizar con handleToggleTodo(id)
   texto: string;
   done: boolean;
 };
@@ -29,41 +29,39 @@ type RawTask = {
 
 export interface TodoListProps {
   initialTodos?: RawTask[];
-  onToggle: (id: number) => void;
+  onToggle: (id: number) => void; // 🎯 Prop interactiva obligatoria
 }
 
 /** ---------------- FALLBACK ---------------- */
 const fallbackTasks = [
-  {
-    id: "t1",
-    text: "Revisar resultados de clientes top del día anterior",
-    done: true,
-  },
-  {
-    id: "t2",
-    text: "Actualizar planes de trabajo de nuevos clientes",
-    done: false,
-  },
-  { id: "t3", text: "Programar capacitaciones de esta semana", done: false },
-  { id: "t4", text: "Enviar feedback personalizado a 3 clientes", done: true },
-  {
-    id: "t5",
-    text: "Revisar ingresos por plataforma y ajustar metas",
-    done: false,
-  },
+  { id: 1, text: "Revisar resultados de clientes top del día anterior", done: true },
+  { id: 2, text: "Actualizar planes de trabajo de nuevos clientes", done: false },
+  { id: 3, text: "Programar capacitaciones de esta semana", done: false },
+  { id: 4, text: "Enviar feedback personalizado a 3 clientes", done: true },
+  { id: 5, text: "Revisar ingresos por plataforma y ajustar metas", done: false },
 ];
 
 /** ---------------- NORMALIZER ---------------- */
 const normalizeTasks = (tasks: RawTask[]): TareaItem[] => {
-  return tasks.map((task, index) => ({
-    id: task.id ?? `task-${index}`,
-    texto: task.text ?? task.titulo ?? task.descripcion ?? "Sin título",
-    done: task.done ?? task.completada ?? task.estado === "completada" ,
-  }));
+  return tasks.map((task, index) => {
+    // Convertimos de forma segura el ID a número puro
+    let idNumerico = index + 1;
+    if (task.id !== undefined && task.id !== null) {
+      const parsed = parseInt(task.id.toString(), 10);
+      if (!isNaN(parsed)) idNumerico = parsed;
+    }
+
+    return {
+      id: idNumerico,
+      texto: task.text ?? task.titulo ?? task.descripcion ?? "Sin título",
+      done: task.done ?? task.completada ?? task.estado === "completada",
+    };
+  });
 };
 
 /** ---------------- COMPONENT ---------------- */
-const TodoList = ({ initialTodos }: TodoListProps) => {
+// 🎯 CORRECCIÓN: Desestructuramos correctamente onToggle de las propiedades
+const TodoList = ({ initialTodos, onToggle }: TodoListProps) => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [open, setOpen] = useState(false);
 
@@ -102,7 +100,11 @@ const TodoList = ({ initialTodos }: TodoListProps) => {
         <div className="flex flex-col gap-3">
           {tasksToDisplay.map((task) => (
             <Card key={task.id} className="p-4 flex items-center gap-3">
-              <Checkbox checked={task.done} />
+              {/* 🎯 CONEXIÓN ACTIVA: Activamos el evento onClick real usando onCheckedChange */}
+              <Checkbox
+                checked={task.done}
+                onCheckedChange={() => onToggle(task.id)}
+              />
               <span
                 className={`text-sm ${
                   task.done ? "line-through text-muted-foreground" : ""
