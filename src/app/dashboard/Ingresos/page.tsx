@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -22,10 +23,7 @@ import {
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   DollarSign,
-  Calendar,
-  TrendingUp,
   BarChart3,
-  Filter,
 } from "lucide-react";
 import {
   Table,
@@ -64,7 +62,8 @@ type Cliente = {
   nombre: string;
 };
 
-const API_URL = "http://localhost:8000/ingresos/";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
 
 const chartConfig: ChartConfig = {
   clientesTop: {
@@ -116,10 +115,10 @@ const IngresosPage = () => {
   useEffect(() => {
     const cargarDatos = async () => {
       try {
-        const resIngresos = await fetch(API_URL, { credentials: "include" });
+        const resIngresos = await fetch(API_BASE , { credentials: "include" });
         if (resIngresos.ok) setIngresos(await resIngresos.json());
 
-        const resClientes = await fetch("http://localhost:8000/clientes/", {
+        const resClientes = await fetch(`${API_BASE}clientes/`, {
           credentials: "include",
         });
         if (resClientes.ok) setClientes(await resClientes.json());
@@ -176,8 +175,8 @@ const IngresosPage = () => {
     try {
       const url =
         editMode && ingresoEditando
-          ? `${API_URL}${ingresoEditando.id}`
-          : API_URL;
+          ? `${API_BASE }${ingresoEditando.id}`
+          : API_BASE ;
       const response = await fetch(url, {
         method: editMode ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -209,7 +208,7 @@ const IngresosPage = () => {
 
   const handleDeleteIngreso = async (id: number) => {
     try {
-      const response = await fetch(`${API_URL}${id}`, {
+      const response = await fetch(`${API_BASE }${id}`, {
         method: "DELETE",
         credentials: "include",
       });

@@ -36,6 +36,8 @@ type EditUserProps = {
   usuarioData: Usuario;
 };
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
 // 3. Desestructuramos el prop en la función del componente
 const EditUser = ({ usuarioData }: EditUserProps) => {
   // 4. Usamos los datos del usuario para inicializar el estado del formulario
@@ -46,13 +48,26 @@ const EditUser = ({ usuarioData }: EditUserProps) => {
     is_active: usuarioData.is_active,
   });
 
-  const handleSave = async () => {
-    // Aquí iría tu lógica de fetch con el método PUT hacia FastAPI
-    // fetch(`http://localhost:8000/usuarios/${usuarioData.id}`, { ... })
+const handleSave = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/${usuarioData.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formData),
+    });
 
-    console.log("Guardando datos:", formData);
+    if (!response.ok) {
+      throw new Error("Error al actualizar usuario");
+    }
+
     toast.success("Usuario actualizado correctamente");
-  };
+  } catch (error) {
+    console.error(error);
+    toast.error("Error al actualizar usuario");
+  }
+};
 
   return (
     <SheetContent className="sm:max-w-106.25">

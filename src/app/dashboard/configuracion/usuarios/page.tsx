@@ -56,7 +56,8 @@ type Cliente = {
 };
 
 // Mantenemos las URLs de tu entorno local
-const API_URL = "http://localhost:8000/usuarios/";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
 const CLIENTES_URL = "http://localhost:8000/clientes/";
 
 export default function UsuariosPage() {
@@ -66,7 +67,11 @@ export default function UsuariosPage() {
   const [credencialesDialog, setCredencialesDialog] = useState(false);
   const [copiado, setCopiado] = useState(false);
 
-  const [credenciales, setCredenciales] = useState({ id: 0, email: "", pass: "" });
+  const [credenciales, setCredenciales] = useState({
+    id: 0,
+    email: "",
+    pass: "",
+  });
 
   const [nuevoUsuario, setNuevoUsuario] = useState({
     username: "",
@@ -80,14 +85,15 @@ export default function UsuariosPage() {
     try {
       // Usamos credentials: "include" para que las Cookies de sesión viajen al backend
       const [resUsers, resClients] = await Promise.all([
-        fetch(API_URL, { credentials: "include" }),
-        fetch(CLIENTES_URL, { credentials: "include" })
+        fetch(API_BASE, { credentials: "include" }),
+        fetch(CLIENTES_URL, { credentials: "include" }),
       ]);
 
       if (resUsers.ok) setUsuarios(await resUsers.json());
       if (resClients.ok) setClientes(await resClients.json());
 
-      if (resUsers.status === 401) toast.error("Sesión no autorizada o expirada");
+      if (resUsers.status === 401)
+        toast.error("Sesión no autorizada o expirada");
     } catch (error) {
       console.error(error);
       toast.error("Error al conectar con el servidor de CamCoach");
@@ -112,11 +118,13 @@ export default function UsuariosPage() {
       ...nuevoUsuario,
       password: passMock,
       is_active: true,
-      cliente_id: nuevoUsuario.cliente_id ? Number(nuevoUsuario.cliente_id) : null
+      cliente_id: nuevoUsuario.cliente_id
+        ? Number(nuevoUsuario.cliente_id)
+        : null,
     };
 
     try {
-      const response = await fetch(API_URL, {
+      const response = await fetch(API_BASE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -131,7 +139,12 @@ export default function UsuariosPage() {
           pass: passMock,
         });
         setCredencialesDialog(true);
-        setNuevoUsuario({ username: "", email: "", rol: "cliente", cliente_id: "" });
+        setNuevoUsuario({
+          username: "",
+          email: "",
+          rol: "cliente",
+          cliente_id: "",
+        });
         setDialogOpen(false);
         cargarDatos();
         toast.success("Usuario creado y vinculado");
@@ -148,9 +161,9 @@ export default function UsuariosPage() {
   // 3. ELIMINAR (Sin alert nativo, usando toast para confirmación si fuera necesario)
   const eliminarUsuario = async (id: number) => {
     try {
-      const response = await fetch(`${API_URL}${id}`, {
+      const response = await fetch(`${API_BASE}${id}`, {
         method: "DELETE",
-        credentials: "include"
+        credentials: "include",
       });
       if (response.ok) {
         toast.success("Usuario eliminado exitosamente");
@@ -164,14 +177,16 @@ export default function UsuariosPage() {
 
   const toggleActivo = async (usuario: Usuario) => {
     try {
-      const response = await fetch(`${API_URL}${usuario.id}`, {
+      const response = await fetch(`${API_BASE}${usuario.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_active: !usuario.is_active }),
         credentials: "include",
       });
       if (response.ok) {
-        toast.success(`Usuario ${usuario.is_active ? 'desactivado' : 'activado'}`);
+        toast.success(
+          `Usuario ${usuario.is_active ? "desactivado" : "activado"}`,
+        );
         cargarDatos();
       }
     } catch (error) {
@@ -195,7 +210,9 @@ export default function UsuariosPage() {
           <UserCog className="h-8 w-8 text-blue-600" />
           <div>
             <h1 className="text-3xl font-bold">Gestión de Usuarios</h1>
-            <p className="text-muted-foreground">Administra los accesos de tus clientes.</p>
+            <p className="text-muted-foreground">
+              Administra los accesos de tus clientes.
+            </p>
           </div>
         </div>
 
@@ -208,36 +225,48 @@ export default function UsuariosPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Crear Usuario</DialogTitle>
-              <DialogDescription>Genera credenciales vinculadas a un cliente registrado.</DialogDescription>
+              <DialogDescription>
+                Genera credenciales vinculadas a un cliente registrado.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <Input
                 placeholder="Nombre de Usuario"
                 value={nuevoUsuario.username}
-                onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, username: e.target.value })}
+                onChange={(e) =>
+                  setNuevoUsuario({ ...nuevoUsuario, username: e.target.value })
+                }
               />
               <Input
                 placeholder="Email"
                 type="email"
                 value={nuevoUsuario.email}
-                onChange={(e) => setNuevoUsuario({ ...nuevoUsuario, email: e.target.value })}
+                onChange={(e) =>
+                  setNuevoUsuario({ ...nuevoUsuario, email: e.target.value })
+                }
               />
               <Select
                 value={nuevoUsuario.cliente_id}
-                onValueChange={(v) => setNuevoUsuario({ ...nuevoUsuario, cliente_id: v })}
+                onValueChange={(v) =>
+                  setNuevoUsuario({ ...nuevoUsuario, cliente_id: v })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar Cliente..." />
                 </SelectTrigger>
                 <SelectContent>
                   {clientes.map((c) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>{c.nombre}</SelectItem>
+                    <SelectItem key={c.id} value={c.id.toString()}>
+                      {c.nombre}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancelar
+              </Button>
               <Button onClick={crearUsuario}>Crear Usuario</Button>
             </DialogFooter>
           </DialogContent>
@@ -266,12 +295,20 @@ export default function UsuariosPage() {
                     <TableCell>{usuario.username}</TableCell>
                     <TableCell>{usuario.email}</TableCell>
                     <TableCell>
-                      <Badge variant={usuario.rol === "admin" ? "default" : "secondary"}>
+                      <Badge
+                        variant={
+                          usuario.rol === "admin" ? "default" : "secondary"
+                        }
+                      >
                         {usuario.rol.toUpperCase()}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => toggleActivo(usuario)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleActivo(usuario)}
+                      >
                         {usuario.is_active ? (
                           <Eye className="h-4 w-4 text-blue-500" />
                         ) : (
@@ -304,24 +341,43 @@ export default function UsuariosPage() {
               <CheckCircle2 className="text-green-500 h-5 w-5" />
               ¡Credenciales Listas!
             </DialogTitle>
-            <DialogDescription>Copia y envía estas credenciales al cliente de inmediato.</DialogDescription>
+            <DialogDescription>
+              Copia y envía estas credenciales al cliente de inmediato.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="bg-slate-900 p-4 rounded-md space-y-2 mt-2">
             <div className="flex flex-col">
-              <span className="text-slate-400 text-xs uppercase font-semibold">Email</span>
-              <span className="text-slate-50 font-mono text-sm">{credenciales.email}</span>
+              <span className="text-slate-400 text-xs uppercase font-semibold">
+                Email
+              </span>
+              <span className="text-slate-50 font-mono text-sm">
+                {credenciales.email}
+              </span>
             </div>
             <div className="flex flex-col">
-              <span className="text-slate-400 text-xs uppercase font-semibold">Contraseña</span>
-              <span className="text-green-400 font-mono text-lg">{credenciales.pass}</span>
+              <span className="text-slate-400 text-xs uppercase font-semibold">
+                Contraseña
+              </span>
+              <span className="text-green-400 font-mono text-lg">
+                {credenciales.pass}
+              </span>
             </div>
           </div>
 
           <DialogFooter className="mt-4 flex sm:justify-between">
-            <Button variant="outline" onClick={() => setCredencialesDialog(false)}>Cerrar</Button>
+            <Button
+              variant="outline"
+              onClick={() => setCredencialesDialog(false)}
+            >
+              Cerrar
+            </Button>
             <Button onClick={copiarCredenciales} className="gap-2">
-              {copiado ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copiado ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
               {copiado ? "Copiado" : "Copiar"}
             </Button>
           </DialogFooter>

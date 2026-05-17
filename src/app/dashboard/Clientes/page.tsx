@@ -77,6 +77,9 @@ type ClienteAPI = {
   fecha_union: string;
 };
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
+
 const ClientesPage = () => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,7 +95,7 @@ const ClientesPage = () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("http://localhost:8000/clientes", {
+        const res = await fetch(API_BASE, {
           credentials: "include",
         });
 
@@ -459,8 +462,8 @@ const ClienteForm = ({
         <Select
           value={formData.estado}
           onValueChange={(v: "activa" | "pausada") =>
-  setFormData({ ...formData, estado: v })
-}
+            setFormData({ ...formData, estado: v })
+          }
         >
           <SelectTrigger>
             <SelectValue />

@@ -63,6 +63,8 @@ const appItems = [
   { title: "Ingresos", url: "/dashboard/Ingresos", icon: Wallet },
   { title: "Buscar", url: "/dashboard/Buscar", icon: Settings },
 ];
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
 
 const AppSidebar = () => {
   const pathname = usePathname();
@@ -77,7 +79,7 @@ const AppSidebar = () => {
   useEffect(() => {
     const obtenerUsuarioActual = async () => {
       try {
-        const response = await fetch("http://localhost:8000/auth/me", {
+        const response = await fetch(API_BASE, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",

@@ -27,8 +27,9 @@ type RawTask = {
   estado?: string;
 };
 
-interface TodoListProps {
+export interface TodoListProps {
   initialTodos?: RawTask[];
+  onToggle: (id: number) => void;
 }
 
 /** ---------------- FALLBACK ---------------- */

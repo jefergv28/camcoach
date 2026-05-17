@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-const API_URL = "http://localhost:8000/configuracion/";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
 
 export default function ConfiguracionPage() {
   // Estado inicial vacío. Se llenará cuando el backend responda.
@@ -42,7 +43,7 @@ export default function ConfiguracionPage() {
   // 1. OBTENER LOS DATOS REALES DEL USUARIO LOGUEADO
   const cargarConfiguracion = async () => {
     try {
-      const response = await fetch(API_URL, {
+      const response = await fetch(API_BASE, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -93,7 +94,7 @@ export default function ConfiguracionPage() {
   // 2. GUARDAR LOS CAMBIOS EN LA BASE DE DATOS
   const guardarConfig = async () => {
     try {
-      const response = await fetch(API_URL, {
+      const response = await fetch(API_BASE , {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),

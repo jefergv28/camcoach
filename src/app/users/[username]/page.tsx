@@ -37,7 +37,8 @@ type Usuario = {
   cliente_id: number | null;
 };
 
-const API_URL = "http://localhost:8000/usuarios/";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
 
 const SingleUserPage = () => {
   const params = useParams();
@@ -50,7 +51,7 @@ const SingleUserPage = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const response = await fetch(`${API_URL}${userId}`, {
+        const response = await fetch(`${API_BASE}${userId}`, {
           credentials: "include",
         });
         if (response.ok) {
@@ -60,6 +61,7 @@ const SingleUserPage = () => {
           toast.error("Usuario no encontrado");
         }
       } catch (error) {
+        console.error(error);
         toast.error("Error al conectar con el servidor");
       } finally {
         setLoading(false);

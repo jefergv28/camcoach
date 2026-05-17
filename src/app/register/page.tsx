@@ -22,6 +22,9 @@ import {
   CheckCircle,
 } from "lucide-react";
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
+
 export default function RegisterPage() {
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
@@ -39,7 +42,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/usuarios/", {
+      const response = await fetch(`${API_BASE}/usuarios/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

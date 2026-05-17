@@ -23,6 +23,9 @@ interface UserInfo {
   rol: string;
 }
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
+
 const Navbar = () => {
   const pathname = usePathname();
   const router = useRouter();
@@ -35,7 +38,7 @@ const Navbar = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await fetch("http://localhost:8000/auth/me", {
+        const res = await fetch(API_BASE, {
           method: "GET",
           credentials: "include", // envía la cookie httpOnly
           mode: "cors",

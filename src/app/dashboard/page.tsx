@@ -30,8 +30,11 @@ interface Cliente {
   nombre: string;
   email?: string;
 }
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
+
 export default function Homepage() {
-  // Estados para almacenar la información real de cada router
   const [ingresos, setIngresos] = useState<Ingreso[]>([]);
   const [tareas, setTareas] = useState<Tarea[]>([]);
   const [reportes, setReportes] = useState<Reportes | null>(null);
@@ -43,29 +46,26 @@ export default function Homepage() {
   useEffect(() => {
     const cargarDashboardReal = async () => {
       try {
-        // 🚀 PETICIÓN EN PARALELO: Apuntamos directo a los prefijos de tu main.py
-        // Ajusta los sufijos (/resumen, /pendientes) según los nombres exactos de tus funciones @router.get
         const [resIngresos, resTareas, resReportes, resClientes] =
           await Promise.all([
-            fetch("http://localhost:8000/ingresos/", {
+            fetch(API_BASE, {
               method: "GET",
               credentials: "include",
             }),
-            fetch("http://localhost:8000/tareas/", {
+            fetch(API_BASE, {
               method: "GET",
               credentials: "include",
             }),
-            fetch("http://localhost:8000/reportes/", {
+            fetch(API_BASE, {
               method: "GET",
               credentials: "include",
             }),
-            fetch("http://localhost:8000/clientes/", {
+            fetch(API_BASE, {
               method: "GET",
               credentials: "include",
             }),
           ]);
 
-        // Validamos que ninguno de tus controladores haya fallado
         if (
           !resIngresos.ok ||
           !resTareas.ok ||
@@ -75,15 +75,21 @@ export default function Homepage() {
           throw new Error("Error en alguna de las rutas del backend");
         }
 
-        // Parseamos las respuestas reales de la base de datos
         const dataIngresos = await resIngresos.json();
-        const dataTareas = await resTareas.json();
+        const dataTareasRaw = await resTareas.json();
         const dataReportes = await resReportes.json();
         const dataClientes = await resClientes.json();
 
-        // Guardamos los datos en sus respectivos estados
+        // 🎯 ADAPTACIÓN: Traducimos el "estado" de FastAPI a "completada" de Next.js
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const tareasAdaptadas: Tarea[] = dataTareasRaw.map((t: any) => ({
+          id: t.id,
+          titulo: t.titulo,
+          completada: t.estado === "completado", // Si en la DB es "completado", aquí es true
+        }));
+
         setIngresos(dataIngresos);
-        setTareas(dataTareas);
+        setTareas(tareasAdaptadas);
         setReportes(dataReportes);
         setClientesTop(dataClientes);
       } catch (err) {
@@ -96,6 +102,17 @@ export default function Homepage() {
 
     cargarDashboardReal();
   }, []);
+
+  // 🚀 FUNCIÓN PARA ACTUALIZAR EL ESTADO EN PANTALLA AL HACER CLIC
+  const handleToggleTodo = (id: number) => {
+    setTareas((prevTareas) =>
+      prevTareas.map((tarea) =>
+        tarea.id === id ? { ...tarea, completada: !tarea.completada } : tarea,
+      ),
+    );
+    /* 💡 NOTA: Más adelante podemos meter aquí el fetch con método PUT a tu backend
+       (/tareas/{id}) para que el cambio se guarde permanentemente en PostgreSQL. */
+  };
 
   if (cargando) {
     return (
@@ -120,7 +137,6 @@ export default function Homepage() {
       <div className="bg-primary-foreground p-4 rounded-lg lg:col-span-2 xl:col-span-1 2xl:col-span-2">
         <AppBarChart
           chartData={ingresos.map((ing) => {
-            //1 convertimos la fecha dde DB a formato corto mes
             const nombreMes = ing.fecha
               ? new Date(ing.fecha).toLocaleDateString("es-ES", {
                   month: "short",
@@ -128,13 +144,8 @@ export default function Homepage() {
               : "S/M";
 
             return {
-              //Nombre del mes para el eje  X del grafico
               month: nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1),
-
-              // mapeamos el monto para el eje X del grafico
               clientesTop: Number(ing.monto) || 0,
-
-              //propiedad obligatoria que pide el componente
               restoClientes: 0,
             };
           })}
@@ -146,7 +157,7 @@ export default function Homepage() {
         <CardList title="Últimos ingresos" items={ingresos.slice(0, 5)} />
       </div>
 
-      {/* 🍕 Distribución por plataforma o modelo */}
+      {/* 🍕 Distribución por plataforma */}
       <div className="bg-primary-foreground p-4 rounded-lg">
         <AppPieChart
           chartData={
@@ -161,7 +172,8 @@ export default function Homepage() {
 
       {/* ✅ Tareas pendientes del usuario logueado */}
       <div className="bg-primary-foreground p-4 rounded-lg">
-        <TodoList initialTodos={tareas} />
+        {/* Enlazamos la función que creamos arriba con la propiedad del componente */}
+        <TodoList initialTodos={tareas} onToggle={handleToggleTodo} />
       </div>
 
       {/* 📈 Evolución de rendimiento histórica */}

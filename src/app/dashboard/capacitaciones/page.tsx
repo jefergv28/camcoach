@@ -44,7 +44,8 @@ type Capacitacion = {
 
 type EstadoCapacitacion = "disponible" | "proximamente";
 
-const API_URL = "http://localhost:8000/capacitaciones/";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
 
 export default function CapacitacionesPage() {
   const [capacitaciones, setCapacitaciones] = useState<Capacitacion[]>([]);
@@ -63,7 +64,7 @@ export default function CapacitacionesPage() {
   // 1. Cargar capacitaciones desde el Backend
   const cargarCapacitaciones = async () => {
     try {
-      const res = await fetch(API_URL, { credentials: "include" });
+      const res = await fetch(API_BASE, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setCapacitaciones(data);
@@ -84,7 +85,7 @@ export default function CapacitacionesPage() {
 
     try {
       const url =
-        editMode && capEditando ? `${API_URL}${capEditando.id}` : API_URL;
+        editMode && capEditando ? `${API_BASE}${capEditando.id}` : API_BASE;
       const method = editMode ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -112,7 +113,7 @@ export default function CapacitacionesPage() {
   const handleDelete = async (id: number) => {
     if (!confirm("¿Estás seguro de eliminar esta capacitación?")) return;
     try {
-      const res = await fetch(`${API_URL}${id}`, {
+      const res = await fetch(`${API_BASE}${id}`, {
         method: "DELETE",
         credentials: "include",
       });

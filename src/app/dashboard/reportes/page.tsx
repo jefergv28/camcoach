@@ -46,7 +46,8 @@ type ReporteData = {
   clientes: ResumenCliente[];
 };
 
-const API_URL = "http://localhost:8000/reportes/";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
 
 const ReportesPage = () => {
   const [clienteFiltro, setClienteFiltro] = useState("todos");
@@ -65,7 +66,7 @@ const ReportesPage = () => {
   useEffect(() => {
     const cargarReporte = async () => {
       try {
-        const response = await fetch(API_URL, { credentials: "include" });
+        const response = await fetch(API_BASE, { credentials: "include" });
         if (response.ok) {
           const data = await response.json();
           setReporteData(data);
@@ -80,8 +81,8 @@ const ReportesPage = () => {
   // Filtrado dinámico
   const clientesFiltrados = useMemo(() => {
     if (clienteFiltro === "todos") return reporteData.clientes;
-    return reporteData.clientes.filter((c) =>
-      c.id.toString() === clienteFiltro
+    return reporteData.clientes.filter(
+      (c) => c.id.toString() === clienteFiltro,
     );
   }, [clienteFiltro, reporteData.clientes]);
 
@@ -211,7 +212,10 @@ const ReportesPage = () => {
             </SelectContent>
           </Select>
 
-          <Button onClick={generarPDF} className="bg-slate-900 text-white hover:bg-slate-800">
+          <Button
+            onClick={generarPDF}
+            className="bg-slate-900 text-white hover:bg-slate-800"
+          >
             📊 Exportar PDF
           </Button>
         </div>
@@ -244,7 +248,9 @@ const ReportesPage = () => {
             <CardTitle>Tareas Completadas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{kpis.tareasCompletadas}</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {kpis.tareasCompletadas}
+            </div>
           </CardContent>
         </Card>
 
@@ -253,7 +259,9 @@ const ReportesPage = () => {
             <CardTitle>Retención Promedio</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-500">{kpis.retencion}%</div>
+            <div className="text-2xl font-bold text-orange-500">
+              {kpis.retencion}%
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -261,17 +269,23 @@ const ReportesPage = () => {
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-card border p-4 rounded-lg shadow-sm">
-          <h3 className="font-semibold mb-4 text-slate-700">Ingresos por Período</h3>
-          <AppBarChart />
+          <h3 className="font-semibold mb-4 text-slate-700">
+            Ingresos por Período
+          </h3>
+          <AppBarChart chartData={[]} />
         </div>
 
         <div className="bg-card border p-4 rounded-lg shadow-sm">
-          <h3 className="font-semibold mb-4 text-slate-700">Distribución Clientes</h3>
+          <h3 className="font-semibold mb-4 text-slate-700">
+            Distribución Clientes
+          </h3>
           <AppPieChart />
         </div>
 
         <div className="bg-card border p-4 rounded-lg lg:col-span-2 shadow-sm">
-          <h3 className="font-semibold mb-4 text-slate-700">Evolución Rendimiento</h3>
+          <h3 className="font-semibold mb-4 text-slate-700">
+            Evolución Rendimiento
+          </h3>
           <AppAreaChart />
         </div>
       </div>
@@ -297,7 +311,10 @@ const ReportesPage = () => {
             <TableBody>
               {clientesFiltrados.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                  <TableCell
+                    colSpan={4}
+                    className="text-center py-6 text-muted-foreground"
+                  >
                     No hay datos disponibles para mostrar.
                   </TableCell>
                 </TableRow>
@@ -310,7 +327,9 @@ const ReportesPage = () => {
                     </TableCell>
                     <TableCell>{c.eventos}</TableCell>
                     <TableCell>
-                      <Badge variant={c.retencion > 85 ? "default" : "secondary"}>
+                      <Badge
+                        variant={c.retencion > 85 ? "default" : "secondary"}
+                      >
                         {c.retencion}%
                       </Badge>
                     </TableCell>

@@ -74,7 +74,7 @@ export default function LandingPage() {
               <h3 className="font-bold mb-4 text-foreground">
                 Ingresos por Período
               </h3>
-              <AppBarChart />
+              <AppBarChart chartData={[]} />
             </div>
 
             {/* Últimos ingresos */}
@@ -89,7 +89,9 @@ export default function LandingPage() {
 
             {/* Tareas */}
             <div className="bg-primary-foreground p-4 rounded-lg">
-              <TodoList />
+              <TodoList onToggle={function (): void {
+                throw new Error("Function not implemented.");
+              } } />
             </div>
 
             {/* Evolución */}

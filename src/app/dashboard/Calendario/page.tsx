@@ -37,7 +37,8 @@ type Cliente = {
   email?: string;
 };
 
-const API_URL = "http://localhost:8000/eventos/";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
 
 const CalendarioPage = () => {
   const [fechaSeleccionada, setFechaSeleccionada] = useState<Date | undefined>(
@@ -55,13 +56,13 @@ const CalendarioPage = () => {
   useEffect(() => {
     const cargarDatos = async () => {
       try {
-        const resEventos = await fetch(API_URL, {
+        const resEventos = await fetch(API_BASE, {
           method: "GET",
           credentials: "include",
         });
         if (resEventos.ok) setEventos(await resEventos.json());
 
-        const resClientes = await fetch("http://localhost:8000/clientes/", {
+        const resClientes = await fetch(API_BASE, {
           method: "GET",
           credentials: "include",
         });
@@ -108,7 +109,9 @@ const CalendarioPage = () => {
 
     try {
       const url =
-        editMode && eventoEditando ? `${API_URL}${eventoEditando.id}` : API_URL;
+        editMode && eventoEditando
+          ? `${API_BASE}${eventoEditando.id}`
+          : API_BASE;
       const response = await fetch(url, {
         method: editMode ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -138,7 +141,7 @@ const CalendarioPage = () => {
   const handleDeleteEvento = async () => {
     if (!eventoAEliminar) return;
     try {
-      const response = await fetch(`${API_URL}${eventoAEliminar.id}`, {
+      const response = await fetch(`${API_BASE }${eventoAEliminar.id}`, {
         method: "DELETE",
         credentials: "include",
       });

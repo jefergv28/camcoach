@@ -41,8 +41,9 @@ type Cliente = {
   nombre: string;
 };
 
-const API_URL_TAREAS = "http://localhost:8000/tareas/";
-const API_URL_CLIENTES = "http://localhost:8000/clientes/";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
+const API_URL_CLIENTES = `${API_BASE}clientes/`;
 
 export default function PlanesTrabajoPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -69,6 +70,7 @@ export default function PlanesTrabajoPage() {
           }
         }
       } catch (error) {
+        console.error(error);
         toast.error("Error al cargar clientes");
       }
     };
@@ -80,16 +82,14 @@ export default function PlanesTrabajoPage() {
     const cargarTareas = async () => {
       if (!clienteSeleccionado) return;
       try {
-        const res = await fetch(
-          `${API_URL_TAREAS}cliente/${clienteSeleccionado}`,
-          {
-            credentials: "include",
-          },
-        );
+        const res = await fetch(`${API_BASE}cliente/${clienteSeleccionado}`, {
+          credentials: "include",
+        });
         if (res.ok) {
           setTareas(await res.json());
         }
       } catch (error) {
+        console.error(error);
         toast.error("Error al cargar tareas");
       }
     };
@@ -114,7 +114,7 @@ export default function PlanesTrabajoPage() {
     };
 
     try {
-      const response = await fetch(API_URL_TAREAS, {
+      const response = await fetch(API_BASE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(datosTarea),
@@ -138,7 +138,7 @@ export default function PlanesTrabajoPage() {
   // 4. Actualizar Estado (PUT)
   const actualizarEstadoTarea = async (id: number, nuevoEstado: Estado) => {
     try {
-      const response = await fetch(`${API_URL_TAREAS}${id}`, {
+      const response = await fetch(`${API_BASE}${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estado: nuevoEstado }),
@@ -159,7 +159,7 @@ export default function PlanesTrabajoPage() {
   // 5. Eliminar Tarea (DELETE)
   const eliminarTarea = async (id: number) => {
     try {
-      const response = await fetch(`${API_URL_TAREAS}${id}`, {
+      const response = await fetch(`${API_BASE}${id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -284,8 +284,6 @@ export default function PlanesTrabajoPage() {
       </html>
     `;
 
-    const blob = new Blob([contenido], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
     const nuevaPestana = window.open("", "_blank");
     nuevaPestana?.document.write(contenido);
     nuevaPestana?.document.close();

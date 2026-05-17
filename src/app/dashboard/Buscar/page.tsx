@@ -13,7 +13,7 @@ import {
   CalendarIcon,
   Loader2,
   MessageSquare, // 🚀 Nuevo ícono para WhatsApp
-  Eye,           // 🚀 Nuevo ícono para ver perfil
+  Eye, // 🚀 Nuevo ícono para ver perfil
 } from "lucide-react";
 import {
   Select,
@@ -26,7 +26,10 @@ import { Separator } from "@/components/ui/separator"; // 🚀 Para separar las 
 import { toast } from "sonner";
 import Link from "next/link";
 
-const API_BASE = "http://localhost:8000/buscador";
+
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
 
 type ResultadoBusqueda = {
   id: string;
@@ -208,10 +211,15 @@ export default function BuscadorPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {resultados.map((item) => {
               // # 🛠️ TRUCO CORREGIDO: Extraemos solo los dígitos del texto del teléfono
-              const numeroLimpio = item.detalles ? item.detalles.replace(/\D/g, "") : "";
+              const numeroLimpio = item.detalles
+                ? item.detalles.replace(/\D/g, "")
+                : "";
 
               return (
-                <Card key={item.id} className="hover:shadow-xl transition-all flex flex-col justify-between overflow-hidden">
+                <Card
+                  key={item.id}
+                  className="hover:shadow-xl transition-all flex flex-col justify-between overflow-hidden"
+                >
                   <CardContent className="p-6 space-y-4 grow">
                     <div className="flex items-start justify-between">
                       {item.modulo === "ingresos" ? (
@@ -226,7 +234,9 @@ export default function BuscadorPage() {
                       </Badge>
                     </div>
                     <div>
-                      <h4 className="font-bold text-xl mb-1 truncate">{item.titulo}</h4>
+                      <h4 className="font-bold text-xl mb-1 truncate">
+                        {item.titulo}
+                      </h4>
                       {item.monto !== undefined && (
                         <div className="text-2xl font-bold text-green-500 mb-2">
                           ${item.monto.toLocaleString()}
@@ -310,8 +320,8 @@ export default function BuscadorPage() {
             </h3>
             <p className="text-gray-400 max-w-md mx-auto mb-6">
               El asistente inteligente no detectó registros con el término{" "}
-              <strong className="text-purple-400">&quot;{query}&quot;</strong> en tu
-              cuenta de administrador.
+              <strong className="text-purple-400">&quot;{query}&quot;</strong>{" "}
+              en tu cuenta de administrador.
             </p>
             <div className="flex justify-center gap-3">
               <Button

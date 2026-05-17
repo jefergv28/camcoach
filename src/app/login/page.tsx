@@ -22,6 +22,9 @@ import {
 import Cookies from "js-cookie";
 import Image from "next/image";
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,7 +42,7 @@ export default function LoginPage() {
 
     try {
       // 1. Llamada al backend de FastAPI
-      const response = await fetch("http://localhost:8000/auth/login", {
+      const response = await fetch(`${API_BASE} /auth/login`, {
         method: "POST",
         mode: "cors",
         credentials: "include",

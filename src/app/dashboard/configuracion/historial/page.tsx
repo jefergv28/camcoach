@@ -25,7 +25,8 @@ import {
 import { toast } from "sonner";
 
 // URL de tu nuevo endpoint en el backend
-const API_URL = "http://localhost:8000/historial/";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = `${BASE_URL}/ingresos`;
 
 type Actividad = {
   id: string | number;
@@ -45,7 +46,7 @@ export default function HistorialPage() {
   // 1. CONSUMIR LA API REAL
   const cargarHistorial = async () => {
     try {
-      const response = await fetch(API_URL, {
+      const response = await fetch(API_BASE , {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
