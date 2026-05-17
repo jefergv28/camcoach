@@ -1,13 +1,29 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import AppBarChart from "@/components/AppBarChart";
-import AppPieChart from "@/components/AppPieChart";
-import AppAreaChart from "@/components/AppAreaChart";
-import CardList from "@/components/CardList";
-import TodoList from "@/components/TodoList";
 import Image from "next/image";
+import dynamic from "next/dynamic";
+
+// 🚀 Cargamos dinámicamente los gráficos y listas para evitar que rompan el prerenderizado estático en Vercel
+const AppBarChart = dynamic(() => import("@/components/AppBarChart"), {
+  ssr: false,
+});
+const AppPieChart = dynamic(() => import("@/components/AppPieChart"), {
+  ssr: false,
+});
+const AppAreaChart = dynamic(() => import("@/components/AppAreaChart"), {
+  ssr: false,
+});
+const CardList = dynamic(() => import("@/components/CardList"), { ssr: false });
+const TodoList = dynamic(() => import("@/components/TodoList"), { ssr: false });
 
 export default function LandingPage() {
+  // Función simulada para cumplir con el contrato interactivo de la prop de TodoList
+  const handleDummyToggle = (id: number) => {
+    console.log("Acción interactiva simulada en la Landing para el ID:", id);
+  };
+
   return (
     <div className="min-h-screen">
       {/* Header igual que dashboard */}
@@ -15,13 +31,14 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg  flex items-center justify-center">
+              <div className="h-8 w-8 rounded-lg flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-sm">
                   <Image
                     src="/logo.png"
                     alt="CamCoach"
                     width={200}
                     height={200}
+                    priority // 🔥 Optimización de Next.js para imágenes por encima del pliegue (LCP)
                   />
                 </span>
               </div>
@@ -79,29 +96,28 @@ export default function LandingPage() {
 
             {/* Últimos ingresos */}
             <div className="bg-primary-foreground p-4 rounded-lg">
-              <CardList title="Últimos Ingresos" />
+              <CardList title="Últimos Ingresos" items={[]} />
             </div>
 
             {/* Distribución */}
             <div className="bg-primary-foreground p-4 rounded-lg">
-              <AppPieChart />
+              <AppPieChart chartData={[]} />
             </div>
 
             {/* Tareas */}
             <div className="bg-primary-foreground p-4 rounded-lg">
-              <TodoList onToggle={function (): void {
-                throw new Error("Function not implemented.");
-              } } />
+              {/* 🎯 Pasamos la función dummy limpia para que Next.js compile sin errores */}
+              <TodoList onToggle={handleDummyToggle} initialTodos={[]} />
             </div>
 
             {/* Evolución */}
             <div className="bg-primary-foreground p-4 rounded-lg lg:col-span-2 xl:col-span-1 2xl:col-span-2">
-              <AppAreaChart />
+              <AppAreaChart chartData={[]} />
             </div>
 
             {/* Clientes destacados */}
             <div className="bg-primary-foreground p-4 rounded-lg">
-              <CardList title="Clientes Destacados" />
+              <CardList title="Clientes Destacados" items={[]} />
             </div>
           </div>
         </section>
