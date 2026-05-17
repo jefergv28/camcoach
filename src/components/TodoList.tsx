@@ -34,11 +34,23 @@ export interface TodoListProps {
 
 /** ---------------- FALLBACK ---------------- */
 const fallbackTasks = [
-  { id: 1, text: "Revisar resultados de clientes top del día anterior", done: true },
-  { id: 2, text: "Actualizar planes de trabajo de nuevos clientes", done: false },
+  {
+    id: 1,
+    text: "Revisar resultados de clientes top del día anterior",
+    done: true,
+  },
+  {
+    id: 2,
+    text: "Actualizar planes de trabajo de nuevos clientes",
+    done: false,
+  },
   { id: 3, text: "Programar capacitaciones de esta semana", done: false },
   { id: 4, text: "Enviar feedback personalizado a 3 clientes", done: true },
-  { id: 5, text: "Revisar ingresos por plataforma y ajustar metas", done: false },
+  {
+    id: 5,
+    text: "Revisar ingresos por plataforma y ajustar metas",
+    done: false,
+  },
 ];
 
 /** ---------------- NORMALIZER ---------------- */
@@ -72,7 +84,7 @@ const TodoList = ({ initialTodos, onToggle }: TodoListProps) => {
 
   return (
     <div>
-      <h1 className="text-lg font-medium mb-6">Tareas de la asesora</h1>
+      <h1 className="text-lg font-medium mb-6">Tareas de la asesora 📊</h1>
 
       {/* CALENDAR */}
       <Popover open={open} onOpenChange={setOpen}>
