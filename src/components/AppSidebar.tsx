@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   Home,
   Calendar,
@@ -14,6 +15,7 @@ import {
   Plus,
   User,
   Clock,
+  LogOut,
 } from "lucide-react";
 
 import {
@@ -29,9 +31,6 @@ import {
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarSeparator,
 } from "./ui/sidebar";
 
@@ -50,14 +49,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./ui/collapsible";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Separator } from "./ui/separator";
-import { usePathname } from "next/navigation";
+import { usePathname } from "next/navigation"; // 🔑 Importamos useRouter para redirigir al salir
 
 /* =========================
    MENÚ PRINCIPAL
 ========================= */
-
 const appItems = [
   { title: "Home", url: "/dashboard", icon: Home },
   { title: "Clientes", url: "/dashboard/Clientes", icon: Users2 },
@@ -67,13 +65,63 @@ const appItems = [
 ];
 
 const AppSidebar = () => {
-  const pathname = usePathname(); // ← DETECTA RUTA
+  const pathname = usePathname();
 
-  // ← OCULTA COMPLETO EN LANDING
-  if (pathname === '/') {
-    return (
-      <div className="w-0 hidden lg:w-0 border-r-0" />  // Espacio vacío invisible
-    );}
+  // 🔄 Estado para almacenar la información del usuario en sesión
+  const [usuario, setUsuario] = useState<{
+    username: string;
+    email: string;
+  } | null>(null);
+
+  // 1. CARGAR DATOS DEL USUARIO LOGUEADO
+  useEffect(() => {
+    const obtenerUsuarioActual = async () => {
+      try {
+        const response = await fetch("http://localhost:8000/auth/me", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`, // Enviamos el carnet
+          },
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUsuario(data); // Guardamos la info real del backend
+        }
+      } catch (error) {
+        console.error("Error obteniendo el perfil del Sidebar:", error);
+      }
+    };
+
+    // Solo pedimos los datos si no estamos en la Landing Page principal
+    if (pathname !== "/") {
+      obtenerUsuarioActual();
+    }
+  }, [pathname]);
+
+  // 2. FUNCIÓN PARA CERRAR SESIÓN (LOGOUT)
+  const handleLogout = () => {
+    localStorage.removeItem("token"); // Borramos la llave maestra
+    // Limpieza preventiva de cookies por si se usaron
+    document.cookie =
+      "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+    // Forzamos un refresco completo redirigiendo a la landing para limpiar la memoria de React
+    window.location.href = "/";
+  };
+
+  // Extraer iniciales dinámicas (Ej: "Jeferson Admin" -> "JE")
+  const getIniciales = (nombre: string) => {
+    if (!nombre) return "U";
+    return nombre.substring(0, 2).toUpperCase();
+  };
+
+  // Oculta completo en Landing
+  if (pathname === "/") {
+    return <div className="w-0 hidden lg:w-0 border-r-0" />;
+  }
 
   return (
     <Sidebar collapsible="icon">
@@ -174,7 +222,6 @@ const AppSidebar = () => {
         {/* ================= SETTINGS ================= */}
         <SidebarGroup>
           <SidebarGroupLabel>Settings</SidebarGroupLabel>
-
           <SidebarGroupContent>
             <SidebarMenu>
               {/* Usuarios */}
@@ -185,7 +232,7 @@ const AppSidebar = () => {
                     <span>Usuarios</span>
                   </Link>
                 </SidebarMenuButton>
-                <SidebarMenuBadge>12</SidebarMenuBadge>
+                <SidebarMenuBadge></SidebarMenuBadge>
               </SidebarMenuItem>
 
               {/* Configuración */}
@@ -202,46 +249,66 @@ const AppSidebar = () => {
         </SidebarGroup>
       </SidebarContent>
 
-      {/* ================= FOOTER ================= */}
+      {/* ================= FOOTER DINÁMICO Y FUNCIONAL ================= */}
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton>
-                  <User2 />
-                  <span>Nya</span>
-                  <ChevronUp className="ml-auto" />
+                <SidebarMenuButton className="w-full justify-between">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <User2 className="h-4 w-4 shrink-0" />
+                    {/* 🔄 Nombre dinámico en el botón colapsable */}
+                    <span className="truncate font-medium">
+                      {usuario ? usuario.username : "Cargando..."}
+                    </span>
+                  </div>
+                  <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0 ml-auto" />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <div className="flex items-center gap-3 p-2 mb-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src="/avatar-nya.jpg" />
-                    <AvatarFallback>NY</AvatarFallback>
+                  <Avatar className="h-8 w-8 bg-indigo-500/10 border border-indigo-500/20">
+                    {/* 🔄 Iniciales dinámicas del avatar */}
+                    <AvatarFallback className="font-bold text-indigo-400 text-xs">
+                      {getIniciales(usuario?.username || "U")}
+                    </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <p className="font-medium">Nya</p>
-                    <p className="text-xs text-muted-foreground">
-                      nya@camcoach.com
+                  <div className="overflow-hidden">
+                    {/* 🔄 Nombre completo dinámico */}
+                    <p className="font-medium text-sm truncate">
+                      {usuario ? usuario.username : "Usuario CamCoach"}
+                    </p>
+                    {/* 🔄 Correo electrónico dinámico */}
+                    <p className="text-xs text-muted-foreground truncate">
+                      {usuario ? usuario.email : "cargando..."}
                     </p>
                   </div>
                 </div>
                 <Separator />
-                <DropdownMenuItem asChild>
+                <DropdownMenuItem asChild className="cursor-pointer mt-1">
                   <Link href="/dashboard/configuracion">
                     <User className="mr-2 h-4 w-4" />
                     Configuración
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
+                <DropdownMenuItem asChild className="cursor-pointer">
                   <Link href="/dashboard/configuracion/historial">
                     <Clock className="mr-2 h-4 w-4" />
                     Historial Actividad
                   </Link>
                 </DropdownMenuItem>
 
-                <DropdownMenuItem>Cerrar Sesión</DropdownMenuItem>
+                <Separator className="my-1" />
+
+                {/* 🔴 BOTÓN DE CERRAR SESIÓN REAL Y VINCULADO */}
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-red-500 focus:text-red-500 focus:bg-red-500/10 cursor-pointer"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Cerrar Sesión
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

@@ -6,58 +6,141 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Sun, Moon, Palette, Save } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+
+const API_URL = "http://localhost:8000/configuracion/";
 
 export default function ConfiguracionPage() {
+  // Estado inicial vacío. Se llenará cuando el backend responda.
   const [config, setConfig] = useState({
-    nombre: "Nya",
-    email: "nya@camcoach.com",
-    telefono: "+57 300 1234567",
-    notificaciones: { email: true, whatsapp: true, app: false },
+    nombre: "",
+    email: "",
+    telefono: "",
+    notificaciones: { email: false, whatsapp: false, app: false }, // Mantenemos la estructura para que Pydantic no llore
     tema: "dark" as "light" | "dark" | "system",
-    coloresPrimario: "#4facfe", // shadcn azul
-    idioma: "es",
+    idioma: "es", // Requerido por el backend aunque no lo mostremos
   });
 
-  useEffect(() => {
-    const saved = localStorage.getItem("configCamCoach");
-    if (saved) setConfig(JSON.parse(saved));
+  const [loading, setLoading] = useState(true);
 
-    // Aplicar tema
-    if (config.tema === "dark" || (config.tema === "system" && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
+  // 1. OBTENER LOS DATOS REALES DEL USUARIO LOGUEADO
+  const cargarConfiguracion = async () => {
+    try {
+      const response = await fetch(API_URL, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          // 🛡️ AQUÍ ESTÁ LA LLAVE: Sacamos el token de la memoria del navegador
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setConfig((prev) => ({ ...prev, ...data }));
+      } else {
+        toast.error("No se pudo cargar tu perfil");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Error al conectar con el servidor");
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Leer tema local si existe
+  useEffect(() => {
+    cargarConfiguracion();
+    const temaGuardado = localStorage.getItem("temaCamCoach");
+    if (temaGuardado) {
+      setConfig((prev) => ({
+        ...prev,
+        tema: temaGuardado as "light" | "dark",
+      }));
+    }
+  }, []);
+
+  // Efecto visual para cambiar el tema en el navegador
+  useEffect(() => {
+    if (
+      config.tema === "dark" ||
+      (config.tema === "system" &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches)
+    ) {
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
   }, [config.tema]);
 
-  const guardarConfig = () => {
-    localStorage.setItem("configCamCoach", JSON.stringify(config));
-    // Aplicar tema
-    document.documentElement.classList.toggle('dark', config.tema === "dark" || (config.tema === "system" && window.matchMedia('(prefers-color-scheme: dark)').matches));
-    alert("¡Configuración guardada!");
+  // 2. GUARDAR LOS CAMBIOS EN LA BASE DE DATOS
+  const guardarConfig = async () => {
+    try {
+      const response = await fetch(API_URL, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        localStorage.setItem("temaCamCoach", config.tema); // Guardamos solo el tema en el navegador
+        toast.success("¡Configuración guardada exitosamente!");
+      } else {
+        toast.error("Error al guardar los cambios");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Fallo de red al guardar");
+    }
   };
+
+  // Extraer las iniciales para el Avatar (Ej: "Jeferson Galvis" -> "JG")
+  const getIniciales = (nombre: string) => {
+    if (!nombre) return "U";
+    return nombre.substring(0, 2).toUpperCase();
+  };
+
+  if (loading) return <div className="p-6">Cargando tu perfil...</div>;
 
   return (
     <div className="space-y-6 p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Configuración</h1>
-          <p className="text-muted-foreground">Personaliza CamCoach a tu medida.</p>
+          <p className="text-muted-foreground">
+            Personaliza tu perfil de CamCoach.
+          </p>
         </div>
-        <Button onClick={guardarConfig}>
+        <Button
+          onClick={guardarConfig}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white"
+        >
           <Save className="mr-2 h-4 w-4" /> Guardar Cambios
         </Button>
       </div>
 
       <Tabs defaultValue="perfil" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        {/* Eliminamos "Preferencias" de la lista */}
+        <TabsList className="grid w-full grid-cols-3 max-w-md">
           <TabsTrigger value="perfil">Perfil</TabsTrigger>
-          <TabsTrigger value="preferencias">Preferencias</TabsTrigger>
           <TabsTrigger value="notificaciones">Notificaciones</TabsTrigger>
           <TabsTrigger value="tema">Tema</TabsTrigger>
         </TabsList>
@@ -67,108 +150,94 @@ export default function ConfiguracionPage() {
           <Card>
             <CardHeader>
               <CardTitle>Información Personal</CardTitle>
-              <CardDescription>Datos de la asesora.</CardDescription>
+              <CardDescription>
+                Estos son los datos vinculados a tu cuenta.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div className="flex items-center space-x-4">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src="/avatar-nya.jpg" />
-                  <AvatarFallback>NY</AvatarFallback>
+                <Avatar className="h-20 w-20 bg-indigo-500/10 border-2 border-indigo-500/20">
+                  {/* Aquí inyectamos las iniciales de tu nombre real */}
+                  <AvatarFallback className="text-2xl font-bold text-indigo-400">
+                    {getIniciales(config.nombre)}
+                  </AvatarFallback>
                 </Avatar>
                 <div>
-                  <Button variant="outline" className="mb-2">Cambiar Foto</Button>
-                  <p className="text-sm text-muted-foreground">JPG/PNG max 2MB</p>
+                  <p className="text-sm text-muted-foreground">
+                    Para cambiar tu foto de perfil, comunícate con el
+                    administrador del sistema.
+                  </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="nombre">Nombre</Label>
-                  <Input id="nombre" value={config.nombre} onChange={(e) => setConfig({...config, nombre: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={config.email} onChange={(e) => setConfig({...config, email: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="telefono">Teléfono</Label>
-                  <Input id="telefono" value={config.telefono} onChange={(e) => setConfig({...config, telefono: e.target.value})} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* PREFERENCIAS */}
-        <TabsContent value="preferencias" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Preferencias Generales</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Idioma</Label>
-                <Select value={config.idioma} onValueChange={(v) => setConfig({...config, idioma: v})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="es">Español</SelectItem>
-                    <SelectItem value="en">English</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Separator />
-              <div className="space-y-2">
-                <Label>Color Primario</Label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="color"
-                    value={config.coloresPrimario}
-                    onChange={(e) => setConfig({...config, coloresPrimario: e.target.value})}
-                    className="h-10 w-10 rounded-full border cursor-pointer"
+                  <Label htmlFor="nombre">Nombre Completo</Label>
+                  <Input
+                    id="nombre"
+                    value={config.nombre}
+                    onChange={(e) =>
+                      setConfig({ ...config, nombre: e.target.value })
+                    }
                   />
-                  <span>{config.coloresPrimario}</span>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">
+                    Correo Electrónico (Solo Lectura)
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={config.email}
+                    disabled // Desactivamos el email para que no rompan el login
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="telefono">Teléfono de Contacto</Label>
+                  <Input
+                    id="telefono"
+                    value={config.telefono || ""}
+                    placeholder="Ej: +57 300..."
+                    onChange={(e) =>
+                      setConfig({ ...config, telefono: e.target.value })
+                    }
+                  />
                 </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* NOTIFICACIONES */}
+        {/* NOTIFICACIONES SIMPLIFICADAS */}
         <TabsContent value="notificaciones" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Notificaciones</CardTitle>
+              <CardTitle>Alertas del Sistema</CardTitle>
+              <CardDescription>
+                Controla cómo quieres que CamCoach te avise.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="space-y-1">
-                  <Label className="text-base">Email</Label>
-                  <p className="text-sm text-muted-foreground">Recordatorios eventos, reportes mensuales.</p>
-                </div>
-                <Switch
-                  checked={config.notificaciones.email}
-                  onCheckedChange={(checked) => setConfig({...config, notificaciones: {...config.notificaciones, email: checked}})}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label className="text-base">WhatsApp</Label>
-                  <p className="text-sm text-muted-foreground">Alertas urgentes clientes.</p>
-                </div>
-                <Switch
-                  checked={config.notificaciones.whatsapp}
-                  onCheckedChange={(checked) => setConfig({...config, notificaciones: {...config.notificaciones, whatsapp: checked}})}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label className="text-base">En App</Label>
-                  <p className="text-sm text-muted-foreground">Notificaciones push navegador.</p>
+                  <Label className="text-base font-bold">
+                    Notificaciones en el Navegador
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Recibe alertas push cuando haya actualizaciones en el
+                    inventario o reportes.
+                  </p>
                 </div>
                 <Switch
                   checked={config.notificaciones.app}
-                  onCheckedChange={(checked) => setConfig({...config, notificaciones: {...config.notificaciones, app: checked}})}
+                  onCheckedChange={(checked) =>
+                    setConfig({
+                      ...config,
+                      notificaciones: {
+                        ...config.notificaciones,
+                        app: checked,
+                      },
+                    })
+                  }
                 />
               </div>
             </CardContent>
@@ -179,27 +248,36 @@ export default function ConfiguracionPage() {
         <TabsContent value="tema" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Tema y Apariencia</CardTitle>
+              <CardTitle>Apariencia</CardTitle>
+              <CardDescription>
+                Ajusta cómo ves el panel de administración.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Tema</Label>
-                <Select value={config.tema} onValueChange={(v: "light" | "dark" | "system") => setConfig({...config, tema: v})}>
+              <div className="space-y-2 max-w-sm">
+                <Label>Tema Visual</Label>
+                <Select
+                  value={config.tema}
+                  onValueChange={(v: "light" | "dark" | "system") =>
+                    setConfig({ ...config, tema: v })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="light"><Sun className="mr-2 h-4 w-4" />Claro</SelectItem>
-                    <SelectItem value="dark"><Moon className="mr-2 h-4 w-4" />Oscuro</SelectItem>
-                    <SelectItem value="system"><Palette className="mr-2 h-4 w-4" />Sistema</SelectItem>
+                    <SelectItem value="light">
+                      <Sun className="mr-2 h-4 w-4 inline-block" /> Claro
+                    </SelectItem>
+                    <SelectItem value="dark">
+                      <Moon className="mr-2 h-4 w-4 inline-block" /> Oscuro
+                    </SelectItem>
+                    <SelectItem value="system">
+                      <Palette className="mr-2 h-4 w-4 inline-block" />{" "}
+                      Automático
+                    </SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <Separator />
-              <div className="grid grid-cols-3 gap-4 pt-4">
-                <Button variant={config.tema === "light" ? "default" : "outline"} onClick={() => setConfig({...config, tema: "light"})}>Claro</Button>
-                <Button variant={config.tema === "dark" ? "default" : "outline"} onClick={() => setConfig({...config, tema: "dark"})}>Oscuro</Button>
-                <Button variant={config.tema === "system" ? "default" : "outline"} onClick={() => setConfig({...config, tema: "system"})}>Auto</Button>
               </div>
             </CardContent>
           </Card>

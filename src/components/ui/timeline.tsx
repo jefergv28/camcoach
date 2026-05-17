@@ -22,7 +22,7 @@ const TimelineItem = ({
   className?: string;
 }) => {
   return (
-    <div className={cn("flex gap-4 min-h-[70px]", className)}>{children}</div>
+    <div className={cn("flex gap-4 min-h-17.5", className)}>{children}</div>
   );
 };
 
@@ -36,7 +36,7 @@ const TimelineOppositeContent = ({
 }) => {
   return (
     <div
-      className={cn("flex w-[150px] flex-col text-right text-sm", className)}
+      className={cn("flex w-37.5 flex-col text-right text-sm", className)}
     >
       {children}
     </div>

@@ -138,13 +138,13 @@ const Navbar = () => {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/configuracion">
+              <Link href="/dashboard/configuracion">
                 <Settings className="h-4 w-4 mr-2" />
-                Ajustes
+                Configuaracion
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/configuracion/historial">
+              <Link href="/dashboard/configuracion/historial">
                 <Clock className="h-4 w-4 mr-2" />
                 Historial Actividad
               </Link>
