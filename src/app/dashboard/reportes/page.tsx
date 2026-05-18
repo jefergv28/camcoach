@@ -28,6 +28,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import Cookies from "js-cookie"; // 🎯 IMPORTACIÓN PARA EL TOKEN
+import { toast } from "sonner";
 
 // Tipos para TypeScript
 type ResumenCliente = {
@@ -47,11 +49,13 @@ type ReporteData = {
 };
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+// 🎯 CORRECCIÓN 1: Ruta correcta a Reportes
+const API_BASE = `${BASE_URL}/reportes`;
 
 const ReportesPage = () => {
   const [clienteFiltro, setClienteFiltro] = useState("todos");
   const [periodo, setPeriodo] = useState("mes");
+  const [isMounted, setIsMounted] = useState(false); // 🎯 Escudo de hidratación
 
   // Estado inicial vacío esperando al backend
   const [reporteData, setReporteData] = useState<ReporteData>({
@@ -64,47 +68,63 @@ const ReportesPage = () => {
 
   // Fetch a la API de FastAPI
   useEffect(() => {
+    setIsMounted(true);
     const cargarReporte = async () => {
       try {
-        const response = await fetch(API_BASE, { credentials: "include" });
+        const token = Cookies.get("token");
+        if (!token) return;
+
+        // 🎯 CORRECCIÓN 2: Inyección segura del token
+        const response = await fetch(`${API_BASE}/`, {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          credentials: "include"
+        });
+
         if (response.ok) {
           const data = await response.json();
-          setReporteData(data);
+          // 🎯 Blindaje extra: Solo actualizamos si realmente llegaron clientes
+          if (data && Array.isArray(data.clientes)) {
+            setReporteData(data);
+          }
+        } else {
+          toast.error("Error al obtener las métricas");
         }
       } catch (error) {
         console.error("Error al cargar los reportes:", error);
       }
     };
     cargarReporte();
-  }, []);
+  }, [periodo]); // Recarga si cambia el periodo
 
-  // Filtrado dinámico
+  // Filtrado dinámico seguro
   const clientesFiltrados = useMemo(() => {
-    if (clienteFiltro === "todos") return reporteData.clientes;
-    return reporteData.clientes.filter(
+    const clientesSeguros = reporteData?.clientes || [];
+    if (clienteFiltro === "todos") return clientesSeguros;
+    return clientesSeguros.filter(
       (c) => c.id.toString() === clienteFiltro,
     );
-  }, [clienteFiltro, reporteData.clientes]);
+  }, [clienteFiltro, reporteData?.clientes]);
 
-  // KPIs dinámicos
+  // KPIs dinámicos seguros
   const kpis = useMemo(() => {
-    // Si vemos todos, usamos los totales que calculó el backend
     if (clienteFiltro === "todos") {
       return {
-        ingresos: reporteData.ingresos_totales,
-        eventos: reporteData.eventos_totales,
-        tareasCompletadas: reporteData.tareas_completadas,
-        retencion: reporteData.retencion_promedio,
+        ingresos: reporteData?.ingresos_totales || 0,
+        eventos: reporteData?.eventos_totales || 0,
+        tareasCompletadas: reporteData?.tareas_completadas || 0,
+        retencion: reporteData?.retencion_promedio || 0,
       };
     }
 
-    // Si filtramos por cliente, recalculamos solo para ese cliente
-    const ingresos = clientesFiltrados.reduce((acc, c) => acc + c.ingresos, 0);
-    const eventos = clientesFiltrados.reduce((acc, c) => acc + c.eventos, 0);
+    const ingresos = clientesFiltrados.reduce((acc, c) => acc + (c.ingresos || 0), 0);
+    const eventos = clientesFiltrados.reduce((acc, c) => acc + (c.eventos || 0), 0);
     const retencion =
       clientesFiltrados.length > 0
         ? Math.round(
-            clientesFiltrados.reduce((acc, c) => acc + c.retencion, 0) /
+            clientesFiltrados.reduce((acc, c) => acc + (c.retencion || 0), 0) /
               clientesFiltrados.length,
           )
         : 0;
@@ -112,13 +132,18 @@ const ReportesPage = () => {
     return {
       ingresos,
       eventos,
-      tareasCompletadas: reporteData.tareas_completadas, // Las tareas siguen siendo globales por ahora
+      tareasCompletadas: reporteData?.tareas_completadas || 0,
       retencion,
     };
   }, [clientesFiltrados, reporteData, clienteFiltro]);
 
-  // Exportar PDF profesional
+  // Exportar PDF profesional protegido
   const generarPDF = () => {
+    if (!clientesFiltrados || clientesFiltrados.length === 0) {
+      toast.warning("No hay datos para exportar");
+      return;
+    }
+
     const contenido = `
       <html>
       <head>
@@ -154,7 +179,7 @@ const ReportesPage = () => {
                 (c) => `
               <tr>
                 <td>${c.nombre}</td>
-                <td>$${c.ingresos.toLocaleString("es-CO")}</td>
+                <td>$${Number(c.ingresos).toLocaleString("es-CO")}</td>
                 <td>${c.eventos}</td>
                 <td>${c.retencion}%</td>
               </tr>`,
@@ -171,8 +196,17 @@ const ReportesPage = () => {
     nuevaPestana?.document.close();
     setTimeout(() => {
       nuevaPestana?.print();
-    }, 500); // Pequeño retraso para asegurar que el HTML cargue
+    }, 500);
   };
+
+  // 🎯 Retorno de seguridad del escudo de hidratación
+  if (!isMounted) {
+    return (
+      <div className="p-8 text-center text-slate-500 animate-pulse font-medium">
+        Cargando tableros de métricas... 📊
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -188,12 +222,13 @@ const ReportesPage = () => {
         <div className="flex flex-wrap gap-2">
           {/* Filtro Dinámico de Clientes */}
           <Select value={clienteFiltro} onValueChange={setClienteFiltro}>
-            <SelectTrigger className="w-45">
+            <SelectTrigger className="w-45 bg-background">
               <SelectValue placeholder="Todos clientes" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos</SelectItem>
-              {reporteData.clientes.map((cliente) => (
+              {/* 🎯 CORRECCIÓN 3: ? opcional para que NUNCA colapse si viene vacío */}
+              {reporteData?.clientes?.map((cliente) => (
                 <SelectItem key={cliente.id} value={cliente.id.toString()}>
                   {cliente.nombre}
                 </SelectItem>
@@ -202,7 +237,7 @@ const ReportesPage = () => {
           </Select>
 
           <Select value={periodo} onValueChange={setPeriodo}>
-            <SelectTrigger className="w-35">
+            <SelectTrigger className="w-35 bg-background">
               <SelectValue placeholder="Mes" />
             </SelectTrigger>
             <SelectContent>
@@ -309,7 +344,8 @@ const ReportesPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clientesFiltrados.length === 0 ? (
+              {/* 🎯 CORRECCIÓN 4: ? opcional garantizando mapeo seguro */}
+              {!clientesFiltrados || clientesFiltrados.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={4}
@@ -323,7 +359,7 @@ const ReportesPage = () => {
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.nombre}</TableCell>
                     <TableCell className="font-semibold text-green-600">
-                      ${c.ingresos.toLocaleString("es-CO")}
+                      ${Number(c.ingresos).toLocaleString("es-CO")}
                     </TableCell>
                     <TableCell>{c.eventos}</TableCell>
                     <TableCell>
