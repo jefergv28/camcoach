@@ -23,39 +23,50 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import Cookies from "js-cookie"; // 🎯 IMPORTACIÓN CLAVE
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+// 🎯 CORRECCIÓN 1: Ruta corregida. Ajusta a "/configuracion" si así se llama en tu FastAPI
+const API_PERFIL = `${BASE_URL}/usuarios/me`;
 
 export default function ConfiguracionPage() {
-  // Estado inicial vacío. Se llenará cuando el backend responda.
   const [config, setConfig] = useState({
     nombre: "",
     email: "",
     telefono: "",
-    notificaciones: { email: false, whatsapp: false, app: false }, // Mantenemos la estructura para que Pydantic no llore
+    notificaciones: { email: false, whatsapp: false, app: false },
     tema: "dark" as "light" | "dark" | "system",
-    idioma: "es", // Requerido por el backend aunque no lo mostremos
+    idioma: "es",
   });
 
   const [loading, setLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false); // 🎯 Escudo de hidratación
 
   // 1. OBTENER LOS DATOS REALES DEL USUARIO LOGUEADO
   const cargarConfiguracion = async () => {
     try {
-      const response = await fetch(API_BASE, {
+      const token = Cookies.get("token"); // 🎯 CORRECCIÓN 2: Leemos el token de la Cookie
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(API_PERFIL, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          // 🛡️ AQUÍ ESTÁ LA LLAVE: Sacamos el token de la memoria del navegador
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
         },
         credentials: "include",
       });
 
       if (response.ok) {
         const data = await response.json();
-        setConfig((prev) => ({ ...prev, ...data }));
+        setConfig((prev) => ({
+          ...prev,
+          ...data,
+          notificaciones: data.notificaciones || prev.notificaciones // Blindaje por si viene null
+        }));
       } else {
         toast.error("No se pudo cargar tu perfil");
       }
@@ -66,20 +77,23 @@ export default function ConfiguracionPage() {
       setLoading(false);
     }
   };
+
   // Leer tema local si existe
   useEffect(() => {
+    setIsMounted(true);
     cargarConfiguracion();
     const temaGuardado = localStorage.getItem("temaCamCoach");
     if (temaGuardado) {
       setConfig((prev) => ({
         ...prev,
-        tema: temaGuardado as "light" | "dark",
+        tema: temaGuardado as "light" | "dark" | "system",
       }));
     }
   }, []);
 
   // Efecto visual para cambiar el tema en el navegador
   useEffect(() => {
+    if (!isMounted) return;
     if (
       config.tema === "dark" ||
       (config.tema === "system" &&
@@ -89,20 +103,29 @@ export default function ConfiguracionPage() {
     } else {
       document.documentElement.classList.remove("dark");
     }
-  }, [config.tema]);
+  }, [config.tema, isMounted]);
 
   // 2. GUARDAR LOS CAMBIOS EN LA BASE DE DATOS
   const guardarConfig = async () => {
     try {
-      const response = await fetch(API_BASE , {
+      const token = Cookies.get("token");
+      if (!token) {
+        toast.error("Sesión inválida");
+        return;
+      }
+
+      const response = await fetch(API_PERFIL, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` // 🎯 CORRECCIÓN 3: Faltaba enviar el token aquí
+        },
         body: JSON.stringify(config),
         credentials: "include",
       });
 
       if (response.ok) {
-        localStorage.setItem("temaCamCoach", config.tema); // Guardamos solo el tema en el navegador
+        localStorage.setItem("temaCamCoach", config.tema);
         toast.success("¡Configuración guardada exitosamente!");
       } else {
         toast.error("Error al guardar los cambios");
@@ -113,13 +136,19 @@ export default function ConfiguracionPage() {
     }
   };
 
-  // Extraer las iniciales para el Avatar (Ej: "Jeferson Galvis" -> "JG")
   const getIniciales = (nombre: string) => {
     if (!nombre) return "U";
     return nombre.substring(0, 2).toUpperCase();
   };
 
-  if (loading) return <div className="p-6">Cargando tu perfil...</div>;
+  // 🎯 Escudo de hidratación visual
+  if (!isMounted || loading) {
+    return (
+      <div className="p-8 text-center text-slate-500 animate-pulse font-medium">
+        Cargando configuración del sistema... ⚙️
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6 max-w-4xl mx-auto">
@@ -139,8 +168,7 @@ export default function ConfiguracionPage() {
       </div>
 
       <Tabs defaultValue="perfil" className="space-y-4">
-        {/* Eliminamos "Preferencias" de la lista */}
-        <TabsList className="grid w-full grid-cols-3 max-w-md">
+        <TabsList className="grid w-full grid-cols-3 max-w-md bg-background">
           <TabsTrigger value="perfil">Perfil</TabsTrigger>
           <TabsTrigger value="notificaciones">Notificaciones</TabsTrigger>
           <TabsTrigger value="tema">Tema</TabsTrigger>
@@ -158,7 +186,6 @@ export default function ConfiguracionPage() {
             <CardContent className="space-y-6">
               <div className="flex items-center space-x-4">
                 <Avatar className="h-20 w-20 bg-indigo-500/10 border-2 border-indigo-500/20">
-                  {/* Aquí inyectamos las iniciales de tu nombre real */}
                   <AvatarFallback className="text-2xl font-bold text-indigo-400">
                     {getIniciales(config.nombre)}
                   </AvatarFallback>
@@ -179,6 +206,7 @@ export default function ConfiguracionPage() {
                     onChange={(e) =>
                       setConfig({ ...config, nombre: e.target.value })
                     }
+                    className="bg-background"
                   />
                 </div>
                 <div className="space-y-2">
@@ -189,7 +217,8 @@ export default function ConfiguracionPage() {
                     id="email"
                     type="email"
                     value={config.email}
-                    disabled // Desactivamos el email para que no rompan el login
+                    disabled
+                    className="bg-muted"
                   />
                 </div>
                 <div className="space-y-2">
@@ -201,6 +230,7 @@ export default function ConfiguracionPage() {
                     onChange={(e) =>
                       setConfig({ ...config, telefono: e.target.value })
                     }
+                    className="bg-background"
                   />
                 </div>
               </div>
@@ -218,7 +248,7 @@ export default function ConfiguracionPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="flex items-center justify-between p-4 border rounded-lg bg-background">
                 <div className="space-y-1">
                   <Label className="text-base font-bold">
                     Notificaciones en el Navegador
@@ -229,7 +259,7 @@ export default function ConfiguracionPage() {
                   </p>
                 </div>
                 <Switch
-                  checked={config.notificaciones.app}
+                  checked={config.notificaciones?.app || false}
                   onCheckedChange={(checked) =>
                     setConfig({
                       ...config,
@@ -263,7 +293,7 @@ export default function ConfiguracionPage() {
                     setConfig({ ...config, tema: v })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
