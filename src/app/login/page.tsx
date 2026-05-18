@@ -23,7 +23,8 @@ import Cookies from "js-cookie";
 import Image from "next/image";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+// 🎯 CORRECCIÓN: La ruta de autenticación es directa en la raíz, no depende de /ingresos
+const API_BASE = `${BASE_URL}/auth/login`;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -41,8 +42,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. Llamada al backend de FastAPI
-      const response = await fetch(`${API_BASE} /auth/login`, {
+      // 🎯 CORRECCIÓN: Quitamos el espacio y apuntamos a la URL directa y limpia
+      const response = await fetch(API_BASE, {
         method: "POST",
         mode: "cors",
         credentials: "include",
@@ -63,7 +64,6 @@ export default function LoginPage() {
       const data = await response.json();
 
       // 2. GUARDAR EL TOKEN EN COOKIES
-      // Es vital que el nombre 'token' coincida con lo que busca tu middleware
       if (data.access_token) {
         Cookies.set("token", data.access_token, {
           expires: 1, // 1 día de duración
@@ -105,9 +105,9 @@ export default function LoginPage() {
                 <Image
                   src="/logo.svg"
                   alt="CamCoach Logo"
-                  width={32} // Propiedad obligatoria
-                  height={32} // Propiedad obligatoria
-                  priority // Indica que es una imagen importante (LCP)
+                  width={32}
+                  height={32}
+                  priority
                   className="object-contain"
                 />
               </div>
@@ -132,7 +132,6 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent className="p-6 lg:p-8 space-y-6">
             <form onSubmit={handleLogin} className="space-y-4">
-              {/* Alerta de Error */}
               {error && (
                 <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2 animate-in fade-in zoom-in duration-300">
                   <AlertCircle className="h-4 w-4" />
@@ -140,7 +139,6 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Alerta de Éxito */}
               {success && (
                 <div className="bg-green-500/15 text-green-600 text-sm p-3 rounded-md flex items-center gap-2 animate-in fade-in zoom-in duration-300">
                   <CheckCircle2 className="h-4 w-4" />
