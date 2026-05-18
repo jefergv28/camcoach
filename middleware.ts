@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
-  // Lee la cookie (request.cookies la ve aunque sea httpOnly)
+  // 🟢 CORRECTO: Ahora lee la cookie unificada 'token'
   const token = request.cookies.get("token")?.value;
 
   console.log("[Middleware] Ruta solicitada:", request.nextUrl.pathname);
-  console.log("[Middleware] Cookie camcoach_token encontrada:", !!token);
+  // 🎯 AJUSTE: Corregimos el texto del log para que diga 'token' en vez del nombre viejo
+  console.log("[Middleware] Cookie token encontrada:", !!token);
 
   if (token) {
     console.log(
       "[Middleware] Token (primeros 20 chars):",
-      token.substring(0, 20),
+      token.substring(0, 20)
     );
   }
 
