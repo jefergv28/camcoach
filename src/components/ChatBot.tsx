@@ -46,11 +46,11 @@ export default function ChatBot() {
       const token = Cookies.get("token"); // 🎯 CORRECCIÓN 2: Obtenemos el token seguro
 
       // 🎯 CORRECCIÓN 3: Uso de la ruta dinámica y envío del Bearer Token
-      const response = await fetch(`${API_CHAT}/`, {
+      const response = await fetch(`${API_CHAT}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         credentials: "include",
         body: JSON.stringify({ mensaje: mensajeUsuario }),
