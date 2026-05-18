@@ -32,6 +32,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
+import Cookies from "js-cookie"; // 🎯 IMPORTACIÓN CLAVE
 
 type Capacitacion = {
   id: number;
@@ -45,13 +46,15 @@ type Capacitacion = {
 type EstadoCapacitacion = "disponible" | "proximamente";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+// 🎯 CORRECCIÓN 1: Apuntamos al endpoint correcto, no a ingresos
+const API_BASE = `${BASE_URL}/capacitaciones`;
 
 export default function CapacitacionesPage() {
   const [capacitaciones, setCapacitaciones] = useState<Capacitacion[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [capEditando, setCapEditando] = useState<Capacitacion | null>(null);
+  const [isMounted, setIsMounted] = useState(false); // 🎯 Escudo de hidratación
 
   const [formData, setFormData] = useState({
     titulo: "",
@@ -64,10 +67,19 @@ export default function CapacitacionesPage() {
   // 1. Cargar capacitaciones desde el Backend
   const cargarCapacitaciones = async () => {
     try {
-      const res = await fetch(API_BASE, { credentials: "include" });
+      const token = Cookies.get("token");
+      if (!token) return;
+
+      const res = await fetch(`${API_BASE}/`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        credentials: "include"
+      });
+
       if (res.ok) {
         const data = await res.json();
-        setCapacitaciones(data);
+        setCapacitaciones(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error(error);
@@ -76,6 +88,7 @@ export default function CapacitacionesPage() {
   };
 
   useEffect(() => {
+    setIsMounted(true);
     cargarCapacitaciones();
   }, []);
 
@@ -84,13 +97,23 @@ export default function CapacitacionesPage() {
     if (!formData.titulo) return;
 
     try {
+      const token = Cookies.get("token");
+      if (!token) {
+        toast.error("Sesión inválida");
+        return;
+      }
+
+      // 🎯 CORRECCIÓN 2: Se agregó la barra "/" antes del ID
       const url =
-        editMode && capEditando ? `${API_BASE}${capEditando.id}` : API_BASE;
+        editMode && capEditando ? `${API_BASE}/${capEditando.id}` : `${API_BASE}/`;
       const method = editMode ? "PUT" : "POST";
 
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(formData),
         credentials: "include",
       });
@@ -102,6 +125,8 @@ export default function CapacitacionesPage() {
         setDialogOpen(false);
         resetForm();
         cargarCapacitaciones();
+      } else {
+        toast.error("Error al guardar la capacitación");
       }
     } catch (error) {
       console.error(error);
@@ -113,13 +138,23 @@ export default function CapacitacionesPage() {
   const handleDelete = async (id: number) => {
     if (!confirm("¿Estás seguro de eliminar esta capacitación?")) return;
     try {
-      const res = await fetch(`${API_BASE}${id}`, {
+      const token = Cookies.get("token");
+      if (!token) return;
+
+      // 🎯 CORRECCIÓN 3: Se agregó la barra "/" antes del ID
+      const res = await fetch(`${API_BASE}/${id}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
         credentials: "include",
       });
+
       if (res.ok) {
         toast.success("Capacitación eliminada");
         cargarCapacitaciones();
+      } else {
+        toast.error("No se pudo eliminar");
       }
     } catch (error) {
       console.error(error);
@@ -160,6 +195,15 @@ export default function CapacitacionesPage() {
     return <FileText className="h-6 w-6 text-emerald-500" />;
   };
 
+  // 🎯 Escudo de hidratación
+  if (!isMounted) {
+    return (
+      <div className="p-8 text-center text-slate-500 animate-pulse font-medium">
+        Cargando módulo de capacitaciones... 📚
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 p-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -186,7 +230,7 @@ export default function CapacitacionesPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {capacitaciones.length === 0 ? (
+        {!capacitaciones || capacitaciones.length === 0 ? (
           <div className="col-span-full text-center py-20 border-2 border-dashed rounded-3xl opacity-50">
             <BookOpen className="h-12 w-12 mx-auto mb-4" />
             <p className="text-lg font-medium">
@@ -259,7 +303,8 @@ export default function CapacitacionesPage() {
 
       {/* DIÁLOGO GESTIÓN */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        {/* 🎯 CORRECCIÓN 4: aria-describedby para quitar el warning de la consola */}
+        <DialogContent aria-describedby={undefined} className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">
               {editMode ? "Editar Capacitación" : "Nueva Capacitación"}
@@ -275,6 +320,7 @@ export default function CapacitacionesPage() {
                   setFormData({ ...formData, titulo: e.target.value })
                 }
                 placeholder="Ej: Marketing para Principiantes"
+                className="bg-background"
               />
             </div>
 
@@ -286,6 +332,7 @@ export default function CapacitacionesPage() {
                   setFormData({ ...formData, descripcion: e.target.value })
                 }
                 placeholder="¿De qué trata este recurso?"
+                className="bg-background"
               />
             </div>
 
@@ -298,7 +345,7 @@ export default function CapacitacionesPage() {
                     setFormData({ ...formData, tipo: v })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -319,7 +366,7 @@ export default function CapacitacionesPage() {
                     setFormData({ ...formData, estado: v })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -341,6 +388,7 @@ export default function CapacitacionesPage() {
                 }
                 placeholder="https://..."
                 disabled={formData.estado === "proximamente"}
+                className="bg-background"
               />
             </div>
           </div>
@@ -355,6 +403,7 @@ export default function CapacitacionesPage() {
             </Button>
             <Button
               onClick={handleSave}
+              disabled={!formData.titulo.trim()}
               className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg"
             >
               {editMode ? "Actualizar" : "Guardar Recurso"}
