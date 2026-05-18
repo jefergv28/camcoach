@@ -40,7 +40,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import Cookies from "js-cookie"; // 🎯 IMPORTANTE: Para recuperar la sesión
+import Cookies from "js-cookie"; // 🎯 Recuperación de sesión segura
 
 type ClienteFormData = {
   nombre: string;
@@ -76,9 +76,9 @@ type ClienteAPI = {
   fecha_union: string;
 };
 
-// 🎯 CORRECCIÓN 1: Apuntar al endpoint correcto de clientes
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/clientes`;
+// 🎯 CORRECCIÓN 1: Forzamos la barra inclinada al final para emparejar con el 307 que vimos en los logs
+const API_BASE = `${BASE_URL}/clientes/`;
 
 const ClientesPage = () => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -97,18 +97,19 @@ const ClientesPage = () => {
       try {
         const token = Cookies.get("token");
 
-        // 🎯 ESCUDO: Detener petición si el token no se ha cargado en el navegador
+        // 🎯 ESCUDO: Detener petición si el token no se ha cargado en el navegador aún
         if (!token) {
           console.log("[Clientes] Token no definido aún.");
           return;
         }
 
-        const res = await fetch(`${API_BASE}/`, {
+        // Al usar API_BASE directo, ya le pega a `${BASE_URL}/clientes/`
+        const res = await fetch(API_BASE, {
           method: "GET",
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`, // 🎯 CORRECCIÓN 2: Inyección de seguridad
+            "Authorization": `Bearer ${token}`, // Inyección de seguridad unificada
           },
         });
 
@@ -210,8 +211,8 @@ const ClientesPage = () => {
                   onClick={async () => {
                     try {
                       const token = Cookies.get("token");
-                      // 🎯 CORRECCIÓN 3: Quitar localhost dinámicamente e inyectar el Bearer token
-                      const res = await fetch(`${API_BASE}/${row.original.id}`, {
+                      // 🎯 CORRECCIÓN 2: Al terminar API_BASE en "/", la ruta dinámica queda limpia como /clientes/id
+                      const res = await fetch(`${API_BASE}${row.original.id}`, {
                         method: "DELETE",
                         credentials: "include",
                         headers: {
@@ -256,8 +257,10 @@ const ClientesPage = () => {
     try {
       const token = Cookies.get("token");
       const isEdit = !!editingCliente;
-      // 🎯 CORRECCIÓN 4: Construcción limpia de URL dinámica usando la constante global de la API
-      const url = isEdit ? `${API_BASE}/${editingCliente.id}` : `${API_BASE}`;
+
+      // 🎯 CORRECCIÓN 3: Construcción de endpoints basándonos en la barra final de API_BASE
+      // Editar -> /clientes/id  |  Crear -> /clientes/ (removiendo el último slash si el backend prefiere exactitud, pero al dejarlo así entra directo sin 307)
+      const url = isEdit ? `${API_BASE}${editingCliente.id}` : `${API_BASE}`;
       const method = isEdit ? "PUT" : "POST";
 
       const payload = {
