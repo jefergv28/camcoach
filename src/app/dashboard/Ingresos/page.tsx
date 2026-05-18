@@ -46,6 +46,7 @@ import { toast } from "sonner";
 import Cookies from "js-cookie"; // 🎯 CORRECCIÓN: Para inyectar el token en las peticiones mutables
 
 import * as XLSX from "xlsx";
+import { number } from "zod";
 
 type Ingreso = {
   id: number;
