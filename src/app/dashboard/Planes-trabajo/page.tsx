@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Play, CheckCircle, Clock, Plus, Trash2, Download } from "lucide-react";
 import { toast } from "sonner";
+import Cookies from "js-cookie"; // 🎯 Para la sesión segura
 
 // Tipos adaptados al Backend
 type Prioridad = "baja" | "media" | "alta";
@@ -31,8 +32,8 @@ type Tarea = {
   titulo: string;
   descripcion: string;
   estado: Estado;
-  cliente_id: number; // Adaptado
-  fecha_limite?: string; // Adaptado (snake_case)
+  cliente_id: number;
+  fecha_limite?: string;
   prioridad: Prioridad;
 };
 
@@ -42,14 +43,16 @@ type Cliente = {
 };
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
-const API_URL_CLIENTES = `${API_BASE}clientes/`;
+// 🎯 CORRECCIÓN 1: Rutas limpias y separadas para el backend
+const API_TAREAS = `${BASE_URL}/tareas`;
+const API_CLIENTES = `${BASE_URL}/clientes/`;
 
 export default function PlanesTrabajoPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<string>("");
   const [tareas, setTareas] = useState<Tarea[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false); // 🎯 Escudo de hidratación
 
   const [nuevaTarea, setNuevaTarea] = useState({
     titulo: "",
@@ -57,16 +60,27 @@ export default function PlanesTrabajoPage() {
     prioridad: "media" as Prioridad,
   });
 
-  // 1. Cargar Clientes al iniciar
+  // 1. Cargar Clientes al iniciar (Con Token)
   useEffect(() => {
+    setIsMounted(true);
     const cargarClientes = async () => {
       try {
-        const res = await fetch(API_URL_CLIENTES, { credentials: "include" });
+        const token = Cookies.get("token");
+        if (!token) return;
+
+        const res = await fetch(API_CLIENTES, {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          credentials: "include"
+        });
+
         if (res.ok) {
           const data = await res.json();
-          setClientes(data);
-          if (data.length > 0) {
-            setClienteSeleccionado(data[0].id.toString()); // Selecciona el primero por defecto
+          setClientes(Array.isArray(data) ? data : []);
+          if (Array.isArray(data) && data.length > 0) {
+            setClienteSeleccionado(data[0].id.toString());
           }
         }
       } catch (error) {
@@ -82,11 +96,21 @@ export default function PlanesTrabajoPage() {
     const cargarTareas = async () => {
       if (!clienteSeleccionado) return;
       try {
-        const res = await fetch(`${API_BASE}cliente/${clienteSeleccionado}`, {
+        const token = Cookies.get("token");
+        if (!token) return;
+
+        // 🎯 CORRECCIÓN 2: Ruta correcta hacia el endpoint de tareas por cliente
+        const res = await fetch(`${API_TAREAS}/cliente/${clienteSeleccionado}`, {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           credentials: "include",
         });
+
         if (res.ok) {
-          setTareas(await res.json());
+          const data = await res.json();
+          setTareas(Array.isArray(data) ? data : []);
         }
       } catch (error) {
         console.error(error);
@@ -98,7 +122,7 @@ export default function PlanesTrabajoPage() {
 
   // Nombre del cliente para el título y PDF
   const nombreClienteActual =
-    clientes.find((c) => c.id.toString() === clienteSeleccionado)?.nombre ||
+    clientes?.find((c) => c.id.toString() === clienteSeleccionado)?.nombre ||
     "Cargando...";
 
   // 3. Crear Tarea (POST)
@@ -114,16 +138,25 @@ export default function PlanesTrabajoPage() {
     };
 
     try {
-      const response = await fetch(API_BASE, {
+      const token = Cookies.get("token");
+      if (!token) {
+        toast.error("Sesión inválida");
+        return;
+      }
+
+      const response = await fetch(`${API_TAREAS}/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(datosTarea),
         credentials: "include",
       });
 
       if (response.ok) {
         const tareaGuardada = await response.json();
-        setTareas([...tareas, tareaGuardada]);
+        setTareas([...(tareas || []), tareaGuardada]);
         setNuevaTarea({ titulo: "", descripcion: "", prioridad: "media" });
         setDialogOpen(false);
         toast.success("Tarea creada");
@@ -138,16 +171,22 @@ export default function PlanesTrabajoPage() {
   // 4. Actualizar Estado (PUT)
   const actualizarEstadoTarea = async (id: number, nuevoEstado: Estado) => {
     try {
-      const response = await fetch(`${API_BASE}${id}`, {
+      const token = Cookies.get("token");
+      if (!token) return;
+
+      const response = await fetch(`${API_TAREAS}/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ estado: nuevoEstado }),
         credentials: "include",
       });
 
       if (response.ok) {
         setTareas((prev) =>
-          prev.map((t) => (t.id === id ? { ...t, estado: nuevoEstado } : t)),
+          (prev || []).map((t) => (t.id === id ? { ...t, estado: nuevoEstado } : t)),
         );
         toast.success("Estado actualizado");
       }
@@ -159,13 +198,19 @@ export default function PlanesTrabajoPage() {
   // 5. Eliminar Tarea (DELETE)
   const eliminarTarea = async (id: number) => {
     try {
-      const response = await fetch(`${API_BASE}${id}`, {
+      const token = Cookies.get("token");
+      if (!token) return;
+
+      const response = await fetch(`${API_TAREAS}/${id}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
         credentials: "include",
       });
 
       if (response.ok) {
-        setTareas((prev) => prev.filter((t) => t.id !== id));
+        setTareas((prev) => (prev || []).filter((t) => t.id !== id));
         toast.success("Tarea eliminada");
       }
     } catch {
@@ -175,7 +220,7 @@ export default function PlanesTrabajoPage() {
 
   // 6. Generador PDF adaptado
   const generarPDF = () => {
-    if (tareas.length === 0) {
+    if (!tareas || tareas.length === 0) {
       toast.warning("No hay tareas para exportar");
       return;
     }
@@ -393,6 +438,14 @@ export default function PlanesTrabajoPage() {
     },
   ];
 
+  if (!isMounted) {
+    return (
+      <div className="p-8 text-center text-slate-500 animate-pulse font-medium">
+        Cargando tableros de trabajo... 📋
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 p-8 max-w-7xl mx-auto">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -408,11 +461,11 @@ export default function PlanesTrabajoPage() {
             value={clienteSeleccionado}
             onValueChange={setClienteSeleccionado}
           >
-            <SelectTrigger className="w-64 h-12">
+            <SelectTrigger className="w-64 h-12 bg-background">
               <SelectValue placeholder="Seleccionar Cliente" />
             </SelectTrigger>
             <SelectContent>
-              {clientes.map((c) => (
+              {clientes?.map((c) => (
                 <SelectItem key={c.id} value={c.id.toString()}>
                   {c.nombre}
                 </SelectItem>
@@ -440,7 +493,7 @@ export default function PlanesTrabajoPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {columnas.map((col) => {
           const Icono = col.icono;
-          const tareasColumna = tareas.filter((t) => t.estado === col.estado);
+          const tareasColumna = (tareas || []).filter((t) => t.estado === col.estado);
 
           return (
             <Card
@@ -491,7 +544,7 @@ export default function PlanesTrabajoPage() {
                 onChange={(e) =>
                   setNuevaTarea({ ...nuevaTarea, titulo: e.target.value })
                 }
-                className="mt-1 h-12 text-lg"
+                className="mt-1 h-12 text-lg bg-background"
               />
             </div>
             <div>
@@ -501,7 +554,7 @@ export default function PlanesTrabajoPage() {
                 onChange={(e) =>
                   setNuevaTarea({ ...nuevaTarea, descripcion: e.target.value })
                 }
-                className="mt-1 h-12 text-lg"
+                className="mt-1 h-12 text-lg bg-background"
               />
             </div>
             <div>
@@ -512,7 +565,7 @@ export default function PlanesTrabajoPage() {
                   setNuevaTarea({ ...nuevaTarea, prioridad: v })
                 }
               >
-                <SelectTrigger className="mt-1 h-12">
+                <SelectTrigger className="mt-1 h-12 bg-background">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
