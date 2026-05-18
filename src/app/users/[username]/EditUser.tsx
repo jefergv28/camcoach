@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import Cookies from "js-cookie"; // 🎯 IMPORTACIÓN DEL TOKEN
 
 // 1. Definimos el mismo tipo de dato que usamos en la página principal
 type Usuario = {
@@ -37,7 +38,9 @@ type EditUserProps = {
 };
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+// 🎯 CORRECCIÓN 1: Ruta correcta a usuarios
+const API_BASE = `${BASE_URL}/usuarios`;
+
 // 3. Desestructuramos el prop en la función del componente
 const EditUser = ({ usuarioData }: EditUserProps) => {
   // 4. Usamos los datos del usuario para inicializar el estado del formulario
@@ -48,26 +51,39 @@ const EditUser = ({ usuarioData }: EditUserProps) => {
     is_active: usuarioData.is_active,
   });
 
-const handleSave = async () => {
-  try {
-    const response = await fetch(`${API_BASE}/${usuarioData.id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),
-    });
+  const handleSave = async () => {
+    try {
+      const token = Cookies.get("token");
+      if (!token) {
+        toast.error("Sesión inválida");
+        return;
+      }
 
-    if (!response.ok) {
-      throw new Error("Error al actualizar usuario");
+      // 🎯 CORRECCIÓN 2: Inyección del token y credentials
+      const response = await fetch(`${API_BASE}/${usuarioData.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(formData),
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Error al actualizar usuario");
+      }
+
+      toast.success("Usuario actualizado correctamente");
+
+      // Opcional: Podrías forzar una recarga limpia aquí si quieres que los datos en SingleUserPage se refresquen de inmediato
+      // window.location.reload();
+
+    } catch (error) {
+      console.error(error);
+      toast.error("Error al actualizar usuario");
     }
-
-    toast.success("Usuario actualizado correctamente");
-  } catch (error) {
-    console.error(error);
-    toast.error("Error al actualizar usuario");
-  }
-};
+  };
 
   return (
     <SheetContent className="sm:max-w-106.25">
@@ -140,7 +156,7 @@ const handleSave = async () => {
       </div>
 
       <SheetFooter>
-        <Button onClick={handleSave} className="w-full">
+        <Button onClick={handleSave} className="w-full bg-slate-900 text-white hover:bg-slate-800">
           Guardar Cambios
         </Button>
       </SheetFooter>

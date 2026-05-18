@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation"; // Si usas React Router DOM cambia esto por react-router-dom
+import { useParams } from "next/navigation";
 import CardList from "@/components/CardList";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import AppLineChart from "@/components/AppLineChart";
 import { toast } from "sonner";
 import EditUser from "./EditUser";
+import Cookies from "js-cookie"; // 🎯 IMPORTACIÓN DEL TOKEN
 
 // Tipo de dato basado en lo que devuelve FastAPI
 type Usuario = {
@@ -38,11 +39,12 @@ type Usuario = {
 };
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+// 🎯 CORRECCIÓN 1: Ruta correcta hacia el módulo de usuarios
+const API_BASE = `${BASE_URL}/usuarios`;
 
 const SingleUserPage = () => {
   const params = useParams();
-  const userId = params?.id || "1"; // Obtiene el ID de la URL (o usa 1 por defecto para probar)
+  const userId = params?.id || "1";
 
   const [user, setUser] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,9 +53,22 @@ const SingleUserPage = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const response = await fetch(`${API_BASE}${userId}`, {
+        const token = Cookies.get("token");
+        if (!token) {
+          toast.error("Sesión no válida");
+          setLoading(false);
+          return;
+        }
+
+        // 🎯 CORRECCIÓN 2: Inyección segura del token y la barra "/" antes del ID
+        const response = await fetch(`${API_BASE}/${userId}`, {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           credentials: "include",
         });
+
         if (response.ok) {
           const data = await response.json();
           setUser(data);
@@ -72,12 +87,12 @@ const SingleUserPage = () => {
   }, [userId]);
 
   if (loading) {
-    return <div className="p-8 text-center text-lg">Cargando perfil...</div>;
+    return <div className="p-8 text-center text-lg animate-pulse">Cargando perfil...</div>;
   }
 
   if (!user) {
     return (
-      <div className="p-8 text-center text-lg text-red-500">
+      <div className="p-8 text-center text-lg text-red-500 font-semibold">
         No se pudo cargar la información del usuario.
       </div>
     );
@@ -233,7 +248,6 @@ const SingleUserPage = () => {
           {/* USER CARD CONTAINER */}
           <div className="bg-primary-foreground p-6 rounded-lg space-y-4 shadow-sm border flex items-start gap-4">
             <Avatar className="h-16 w-16 border-2 border-primary">
-              {/* Aquí puedes usar la inicial del username */}
               <AvatarImage src="" />
               <AvatarFallback className="text-xl font-bold bg-primary text-primary-foreground">
                 {user.username.substring(0, 2).toUpperCase()}
