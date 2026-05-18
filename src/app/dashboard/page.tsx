@@ -7,6 +7,7 @@ import AppPieChart from "@/components/AppPieChart";
 import CardList from "@/components/CardList";
 import TodoList from "@/components/TodoList";
 import Cookies from "js-cookie"; // 🎯 IMPORTANTE: Para leer el token del inicio de sesión
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Ingreso {
   id: number;
@@ -50,18 +51,16 @@ export default function Homepage() {
         // 🎯 1. Recuperamos el token de seguridad desde las cookies
         const token = Cookies.get("token");
 
-        if (!token){
-          console.log("[Dashboard] Token no definido")
+        if (!token) {
+          console.log("[Dashboard] Token no definido");
           return;
         }
 
         // 🎯 2. Configuramos las cabeceras inyectando el Bearer Token si existe
         const headersConfig: HeadersInit = {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         };
-
-
 
         // 🎯 3. Peticiones paralelas apuntando a las rutas REALES e individuales del backend
         const [resIngresos, resTareas, resReportes, resClientes] =
@@ -135,8 +134,23 @@ export default function Homepage() {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center min-h-100 text-slate-500 animate-pulse font-medium text-sm">
-        Cargando métricas reales desde PostgreSQL... 📊
+      <div className="space-y-6 p-6">
+        {/* Cards superiores */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+          ))}
+        </div>
+
+        {/* Gráfico */}
+        <Skeleton className="h-80 w-full rounded-2xl" />
+
+        {/* Tabla */}
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-xl" />
+          ))}
+        </div>
       </div>
     );
   }
