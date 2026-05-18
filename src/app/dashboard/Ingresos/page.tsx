@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/chart";
 import { BarChart, CartesianGrid, XAxis, YAxis, Bar } from "recharts";
 import { toast } from "sonner";
-import Cookies from "js-cookie"; // 🎯 CORRECCIÓN: Para inyectar el token en las peticiones mutables
+import Cookies from "js-cookie";
 
 import * as XLSX from "xlsx";
 
@@ -63,8 +63,8 @@ type Cliente = {
 };
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-// 🎯 CORRECCIÓN 1: Normalizamos la barra inclinada al final de la constante base
-const API_BASE = `${BASE_URL}/ingresos/`;
+// 🎯 URL base limpia sin barra final para controlar las subrutas dinámicas manualmente
+const API_BASE = `${BASE_URL}/ingresos`;
 
 const chartConfig: ChartConfig = {
   clientesTop: {
@@ -122,19 +122,23 @@ const IngresosPage = () => {
           "Authorization": `Bearer ${token}`,
         };
 
-        // 🎯 CORRECCIÓN 2: Le pega directo a /ingresos/ sin provocar redirect 307
-        const resIngresos = await fetch(API_BASE, {
+        // 🎯 Forzamos la barra final de forma explícita en las rutas estáticas
+        const resIngresos = await fetch(`${API_BASE}/`, {
           credentials: "include",
           headers: headersConfig
         });
         if (resIngresos.ok) setIngresos(await resIngresos.json());
 
-        // 🎯 CORRECCIÓN 3: Arreglamos la ruta rota. Ahora da /clientes/ usando el endpoint global de clientes
         const resClientes = await fetch(`${BASE_URL}/clientes/`, {
           credentials: "include",
           headers: headersConfig
         });
-        if (resClientes.ok) setClientes(await resClientes.json());
+
+        if (resClientes.ok) {
+          const dataClientes = await resClientes.json();
+          // 🛡️ CONTROL DE SEGURIDAD: Nos aseguramos de guardar siempre un array válido
+          setClientes(Array.isArray(dataClientes) ? dataClientes : []);
+        }
       } catch (error) {
         console.error("Error al conectar con el backend:", error);
         toast.error("Error al cargar los datos del servidor");
@@ -143,7 +147,9 @@ const IngresosPage = () => {
     cargarDatos();
   }, []);
 
+  // 🛡️ CONTROL DE SEGURIDAD: Agregamos verificación por si el array de clientes está vacío
   const getNombreCliente = (id: number) => {
+    if (!clientes || clientes.length === 0) return "Cargando...";
     const cliente = clientes.find((c) => c.id === id);
     return cliente ? cliente.nombre : "Desconocido";
   };
@@ -189,16 +195,16 @@ const IngresosPage = () => {
         return;
       }
 
-      // 🎯 CORRECCIÓN 4: Construcción limpia de URL con "/" explícitos
+      // 🎯 CORRECCIÓN: Estructuración limpia de rutas dinámicas para PUT y POST sin provocar código 307
       const url = editMode && ingresoEditando
-          ? `${API_BASE}${ingresoEditando.id}`
-          : API_BASE;
+          ? `${API_BASE}/${ingresoEditando.id}`
+          : `${API_BASE}/`;
 
       const response = await fetch(url, {
         method: editMode ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` // Inyección del token unificado
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(datosIngreso),
         credentials: "include",
@@ -208,9 +214,7 @@ const IngresosPage = () => {
         const ingresoServidor = await response.json();
         setIngresos(
           editMode
-            ? ingresos.map((i) =>
-                i.id === ingresoServidor.id ? ingresoServidor : i,
-              )
+            ? ingresos.map((i) => i.id === ingresoServidor.id ? ingresoServidor : i)
             : [ingresoServidor, ...ingresos],
         );
         toast.success(editMode ? "Ingreso actualizado" : "Ingreso registrado");
@@ -231,8 +235,8 @@ const IngresosPage = () => {
       const token = Cookies.get("token");
       if (!token) return;
 
-      // 🎯 CORRECCIÓN 5: Ruta de eliminación corregida a /ingresos/id
-      const response = await fetch(`${API_BASE}${id}`, {
+      // 🎯 CORRECCIÓN: Ruta de eliminación normalizada a /ingresos/id
+      const response = await fetch(`${API_BASE}/${id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -312,7 +316,7 @@ const IngresosPage = () => {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-xl">{ingresos.length}</CardTitle>
+            <CardTitle className="text-xl">{ingresos?.length || 0}</CardTitle>
             <CardDescription>Total Transacciones</CardDescription>
           </CardHeader>
         </Card>
@@ -344,7 +348,7 @@ const IngresosPage = () => {
                     tickLine={false}
                     tickMargin={10}
                     axisLine={false}
-                    tickFormatter={(value) => value.slice(0, 3)}
+                    tickFormatter={(value) => value?.slice(0, 3) || ""}
                     stroke="hsl(var(--muted-foreground))"
                   />
                   <YAxis
@@ -377,7 +381,7 @@ const IngresosPage = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {ingresos.length === 0 ? (
+                {!ingresos || ingresos.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No hay ingresos registrados
                   </p>
@@ -400,7 +404,7 @@ const IngresosPage = () => {
                         </div>
                         <div className="text-right">
                           <div className="font-bold text-lg text-green-600">
-                           ${Number(ingreso.monto).toLocaleString("es-CO")}
+                            ${Number(ingreso.monto).toLocaleString("es-CO")}
                           </div>
                           <Badge
                             variant={
@@ -449,7 +453,7 @@ const IngresosPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {ingresos.map((ingreso) => (
+              {ingresos && ingresos.map((ingreso) => (
                 <TableRow key={ingreso.id}>
                   <TableCell>{ingreso.fecha}</TableCell>
                   <TableCell className="font-medium">
@@ -569,7 +573,7 @@ const IngresoForm = ({
             <SelectValue placeholder="Selecciona un cliente" />
           </SelectTrigger>
           <SelectContent>
-            {clientes.map((c: Cliente) => (
+            {clientes && clientes.map((c: Cliente) => (
               <SelectItem key={c.id} value={c.id.toString()}>
                 {c.nombre}
               </SelectItem>
