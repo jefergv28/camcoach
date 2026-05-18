@@ -21,10 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import {
-  DollarSign,
-  BarChart3,
-} from "lucide-react";
+import { DollarSign, BarChart3 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -63,7 +60,6 @@ type Cliente = {
 };
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-// 🎯 URL base limpia sin barra final para controlar las subrutas dinámicas manualmente
 const API_BASE = `${BASE_URL}/ingresos`;
 
 const chartConfig: ChartConfig = {
@@ -86,6 +82,7 @@ const IngresosPage = () => {
   const [periodo, setPeriodo] = useState<"diario" | "semanal" | "mensual">(
     "diario",
   );
+  const [isMounted, setIsMounted] = useState(false);
 
   const handleExportExcel = () => {
     if (ingresos.length === 0) {
@@ -112,6 +109,7 @@ const IngresosPage = () => {
 
   // Fetch a la API
   useEffect(() => {
+    setIsMounted(true); // 🎯 CORRECCIÓN 1: 'true' en minúsculas para que compile correctamente
     const cargarDatos = async () => {
       try {
         const token = Cookies.get("token");
@@ -119,24 +117,22 @@ const IngresosPage = () => {
 
         const headersConfig = {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         };
 
-        // 🎯 Forzamos la barra final de forma explícita en las rutas estáticas
         const resIngresos = await fetch(`${API_BASE}/`, {
           credentials: "include",
-          headers: headersConfig
+          headers: headersConfig,
         });
         if (resIngresos.ok) setIngresos(await resIngresos.json());
 
         const resClientes = await fetch(`${BASE_URL}/clientes/`, {
           credentials: "include",
-          headers: headersConfig
+          headers: headersConfig,
         });
 
         if (resClientes.ok) {
           const dataClientes = await resClientes.json();
-          // 🛡️ CONTROL DE SEGURIDAD: Nos aseguramos de guardar siempre un array válido
           setClientes(Array.isArray(dataClientes) ? dataClientes : []);
         }
       } catch (error) {
@@ -147,7 +143,6 @@ const IngresosPage = () => {
     cargarDatos();
   }, []);
 
-  // 🛡️ CONTROL DE SEGURIDAD: Agregamos verificación por si el array de clientes está vacío
   const getNombreCliente = (id: number) => {
     if (!clientes || clientes.length === 0) return "Cargando...";
     const cliente = clientes.find((c) => c.id === id);
@@ -195,8 +190,8 @@ const IngresosPage = () => {
         return;
       }
 
-      // 🎯 CORRECCIÓN: Estructuración limpia de rutas dinámicas para PUT y POST sin provocar código 307
-      const url = editMode && ingresoEditando
+      const url =
+        editMode && ingresoEditando
           ? `${API_BASE}/${ingresoEditando.id}`
           : `${API_BASE}/`;
 
@@ -204,7 +199,7 @@ const IngresosPage = () => {
         method: editMode ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(datosIngreso),
         credentials: "include",
@@ -214,7 +209,9 @@ const IngresosPage = () => {
         const ingresoServidor = await response.json();
         setIngresos(
           editMode
-            ? ingresos.map((i) => i.id === ingresoServidor.id ? ingresoServidor : i)
+            ? ingresos.map((i) =>
+                i.id === ingresoServidor.id ? ingresoServidor : i,
+              )
             : [ingresoServidor, ...ingresos],
         );
         toast.success(editMode ? "Ingreso actualizado" : "Ingreso registrado");
@@ -235,11 +232,10 @@ const IngresosPage = () => {
       const token = Cookies.get("token");
       if (!token) return;
 
-      // 🎯 CORRECCIÓN: Ruta de eliminación normalizada a /ingresos/id
       const response = await fetch(`${API_BASE}/${id}`, {
         method: "DELETE",
         headers: {
-          "Authorization": `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         credentials: "include",
       });
@@ -257,6 +253,16 @@ const IngresosPage = () => {
     setEditMode(true);
     setDialogOpen(true);
   };
+
+  // 🎯 CORRECCIÓN 2: El escudo protector de hidratación.
+  // Retorna una vista de carga plana idéntica mientras sincroniza con el cliente
+  if (!isMounted) {
+    return (
+      <div className="p-8 text-center text-slate-500 animate-pulse font-medium">
+        Sincronizando interfaz financiera... 🔒
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 p-8 max-w-7xl mx-auto">
@@ -453,46 +459,47 @@ const IngresosPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {ingresos && ingresos.map((ingreso) => (
-                <TableRow key={ingreso.id}>
-                  <TableCell>{ingreso.fecha}</TableCell>
-                  <TableCell className="font-medium">
-                    {getNombreCliente(ingreso.cliente_id)}
-                  </TableCell>
-                  <TableCell className="capitalize">
-                    {ingreso.metodo_pago}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        ingreso.estado === "pagado" ? "default" : "secondary"
-                      }
-                    >
-                      {ingreso.estado}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right font-medium text-green-600">
-                    ${Number(ingreso.monto).toLocaleString("es-CO")}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditIngreso(ingreso)}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-600 hover:text-red-800"
-                      onClick={() => handleDeleteIngreso(ingreso.id)}
-                    >
-                      Eliminar
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {ingresos &&
+                ingresos.map((ingreso) => (
+                  <TableRow key={ingreso.id}>
+                    <TableCell>{ingreso.fecha}</TableCell>
+                    <TableCell className="font-medium">
+                      {getNombreCliente(ingreso.cliente_id)}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {ingreso.metodo_pago}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          ingreso.estado === "pagado" ? "default" : "secondary"
+                        }
+                      >
+                        {ingreso.estado}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-green-600">
+                      ${Number(ingreso.monto).toLocaleString("es-CO")}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditIngreso(ingreso)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-800"
+                        onClick={() => handleDeleteIngreso(ingreso.id)}
+                      >
+                        Eliminar
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
             </TableBody>
           </Table>
         </CardContent>
@@ -573,7 +580,7 @@ const IngresoForm = ({
             <SelectValue placeholder="Selecciona un cliente" />
           </SelectTrigger>
           <SelectContent>
-            {clientes && clientes.map((c: Cliente) => (
+            {clientes?.map((c: Cliente) => (
               <SelectItem key={c.id} value={c.id.toString()}>
                 {c.nombre}
               </SelectItem>
