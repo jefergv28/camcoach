@@ -28,7 +28,6 @@ import { DataTablePagination } from "@/components/TablePagination";
 import { Edit3, Trash2, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-// AlertDialog para confirmación bonita
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,6 +40,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import Cookies from "js-cookie"; // 🎯 IMPORTANTE: Para recuperar la sesión
 
 type ClienteFormData = {
   nombre: string;
@@ -52,7 +52,6 @@ type ClienteFormData = {
   ingresosMes: number;
 };
 
-// Tipo Cliente (sin cambios)
 type Cliente = {
   id: number;
   nombre: string;
@@ -77,8 +76,9 @@ type ClienteAPI = {
   fecha_union: string;
 };
 
+// 🎯 CORRECCIÓN 1: Apuntar al endpoint correcto de clientes
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+const API_BASE = `${BASE_URL}/clientes`;
 
 const ClientesPage = () => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -89,14 +89,27 @@ const ClientesPage = () => {
   );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Cargar clientes (sin cambios)
+  // Cargar clientes con cabeceras Bearer blindadas
   useEffect(() => {
     const fetchClientes = async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(API_BASE, {
+        const token = Cookies.get("token");
+
+        // 🎯 ESCUDO: Detener petición si el token no se ha cargado en el navegador
+        if (!token) {
+          console.log("[Clientes] Token no definido aún.");
+          return;
+        }
+
+        const res = await fetch(`${API_BASE}/`, {
+          method: "GET",
           credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`, // 🎯 CORRECCIÓN 2: Inyección de seguridad
+          },
         });
 
         if (!res.ok) {
@@ -121,9 +134,8 @@ const ClientesPage = () => {
         setClientes(mapped);
       } catch (err: unknown) {
         if (err instanceof Error) {
-          alert("Error:" + err.message);
-        } else {
-          alert("Error desconocido");
+          setError(err.message);
+          toast.error(err.message);
         }
       } finally {
         setLoading(false);
@@ -133,7 +145,6 @@ const ClientesPage = () => {
     fetchClientes();
   }, []);
 
-  // Columnas (sin cambios grandes, solo la eliminación usa AlertDialog)
   const columns: ColumnDef<Cliente>[] = [
     { accessorKey: "nombre", header: "Cliente" },
     { accessorKey: "email", header: "Email" },
@@ -178,7 +189,6 @@ const ClientesPage = () => {
             <Edit3 className="h-4 w-4" />
           </Button>
 
-          {/* Confirmación bonita con AlertDialog */}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" size="sm">
@@ -199,13 +209,15 @@ const ClientesPage = () => {
                 <AlertDialogAction
                   onClick={async () => {
                     try {
-                      const res = await fetch(
-                        `http://localhost:8000/clientes/${row.original.id}`,
-                        {
-                          method: "DELETE",
-                          credentials: "include",
+                      const token = Cookies.get("token");
+                      // 🎯 CORRECCIÓN 3: Quitar localhost dinámicamente e inyectar el Bearer token
+                      const res = await fetch(`${API_BASE}/${row.original.id}`, {
+                        method: "DELETE",
+                        credentials: "include",
+                        headers: {
+                          "Authorization": `Bearer ${token}`,
                         },
-                      );
+                      });
 
                       if (!res.ok) {
                         const errData = await res.json().catch(() => ({}));
@@ -218,7 +230,7 @@ const ClientesPage = () => {
                       toast.success("Cliente eliminado correctamente");
                     } catch (err: unknown) {
                       if (err instanceof Error) {
-                        toast.error("No se pudo eliminar al el cliente");
+                        toast.error(err.message || "No se pudo eliminar al cliente");
                       }
                     }
                   }}
@@ -242,8 +254,10 @@ const ClientesPage = () => {
 
   const handleSaveCliente = async (formData: ClienteFormData) => {
     try {
+      const token = Cookies.get("token");
       const isEdit = !!editingCliente;
-      const url = isEdit ? `/clientes/${editingCliente.id}` : "/clientes";
+      // 🎯 CORRECCIÓN 4: Construcción limpia de URL dinámica usando la constante global de la API
+      const url = isEdit ? `${API_BASE}/${editingCliente.id}` : `${API_BASE}`;
       const method = isEdit ? "PUT" : "POST";
 
       const payload = {
@@ -256,10 +270,11 @@ const ClientesPage = () => {
         ingresos_mes: Number(formData.ingresosMes) || 0,
       };
 
-      const res = await fetch(`http://localhost:8000${url}`, {
+      const res = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
         credentials: "include",
         body: JSON.stringify(payload),
@@ -288,7 +303,7 @@ const ClientesPage = () => {
         setClientes(
           clientes.map((c) => (c.id === mappedSaved.id ? mappedSaved : c)),
         );
-        toast.success("Cliente actualizado con exito");
+        toast.success("Cliente actualizado con éxito");
       } else {
         setClientes([...clientes, mappedSaved]);
         toast.success("Cliente creado correctamente");
@@ -298,21 +313,21 @@ const ClientesPage = () => {
       setEditingCliente(undefined);
     } catch (err: unknown) {
       if (err instanceof Error) {
-        toast.error("Error al guardar cliente");
+        toast.error(err.message || "Error al guardar cliente");
       }
     }
   };
 
   return (
     <div className="space-y-4">
-      {loading && <div className="text-center py-10">Cargando clientes...</div>}
-      {error && <div className="text-red-500 text-center py-10">{error}</div>}
+      {loading && <div className="text-center py-10 text-slate-500 animate-pulse font-medium">Cargando clientes reales... 👥</div>}
+      {error && <div className="text-red-500 text-center py-10 text-xs bg-red-50 rounded-xl border border-red-100">{error}</div>}
       {!loading && !error && clientes.length === 0 && (
-        <div className="text-center py-10">No hay clientes aún</div>
+        <div className="text-center py-10 text-muted-foreground">No hay clientes aún</div>
       )}
 
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-semibold">Clientes</h1>
+        <h1 className="text-xl font-semibold text-foreground">Clientes</h1>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -321,7 +336,7 @@ const ClientesPage = () => {
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
-            <DialogTitle className="text-lg font-semibold">
+            <DialogTitle className="text-lg font-semibold text-foreground">
               {editingCliente ? "Editar Cliente" : "Nuevo Cliente"}
             </DialogTitle>
             <ClienteForm
@@ -336,12 +351,11 @@ const ClientesPage = () => {
         </Dialog>
       </div>
 
-      {/* TABLA */}
       {!loading && !error && clientes.length > 0 && (
-        <div className="rounded-lg border border-border/40 overflow-hidden">
+        <div className="rounded-lg border border-border/40 overflow-hidden bg-primary-foreground">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted/40">
+              <thead className="bg-muted/40 text-muted-foreground border-b border-border/20">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <tr key={headerGroup.id}>
                     {headerGroup.headers.map((header) => (
@@ -358,11 +372,11 @@ const ClientesPage = () => {
                   </tr>
                 ))}
               </thead>
-              <tbody>
+              <tbody className="text-foreground">
                 {table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="border-t border-border/20 hover:bg-muted/50"
+                    className="border-b border-border/20 last:border-0 hover:bg-muted/50 transition-colors"
                   >
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id} className="px-4 py-3">
@@ -385,7 +399,6 @@ const ClientesPage = () => {
   );
 };
 
-// ClienteForm (sin cambios)
 const ClienteForm = ({
   cliente,
   onSave,
