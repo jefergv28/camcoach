@@ -51,7 +51,8 @@ import {
 } from "./ui/collapsible";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Separator } from "./ui/separator";
-import { usePathname } from "next/navigation"; // 🔑 Importamos useRouter para redirigir al salir
+import { usePathname } from "next/navigation";
+import Cookies from "js-cookie"; // 🎯 CORRECCIÓN CLAVE: Agregamos el import que faltaba
 
 /* =========================
    MENÚ PRINCIPAL
@@ -64,7 +65,8 @@ const appItems = [
   { title: "Buscar", url: "/dashboard/Buscar", icon: Settings },
 ];
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+// 🎯 URL e inyección corregida apuntando a la ruta del perfil con "/" al final
+const API_PERFIL = `${BASE_URL}/auth/me/`;
 
 const AppSidebar = () => {
   const pathname = usePathname();
@@ -79,18 +81,31 @@ const AppSidebar = () => {
   useEffect(() => {
     const obtenerUsuarioActual = async () => {
       try {
-        const response = await fetch(API_BASE, {
+        const token = Cookies.get("token"); // Lee la cookie de forma segura
+
+        // ESCUDO: Si el token no está listo aún en el navegador, frenamos la petición
+        if (!token) {
+          console.log("[Sidebar] Esperando por el token unificado...");
+          return;
+        }
+
+        const response = await fetch(API_PERFIL, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`, // Enviamos el carnet
+            Authorization: `Bearer ${token}`, // Envía el token de forma correcta
           },
           credentials: "include",
         });
 
         if (response.ok) {
           const data = await response.json();
-          setUsuario(data); // Guardamos la info real del backend
+          setUsuario(data); // Guarda los datos reales del backend
+        } else {
+          console.error(
+            "[Sidebar] El backend rechazó el token con estado:",
+            response.status,
+          );
         }
       } catch (error) {
         console.error("Error obteniendo el perfil del Sidebar:", error);
@@ -105,16 +120,17 @@ const AppSidebar = () => {
 
   // 2. FUNCIÓN PARA CERRAR SESIÓN (LOGOUT)
   const handleLogout = () => {
-    localStorage.removeItem("token"); // Borramos la llave maestra
-    // Limpieza preventiva de cookies por si se usaron
+    Cookies.remove("token"); // Borra la cookie unificada
+    localStorage.removeItem("token");
+
     document.cookie =
       "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
-    // Forzamos un refresco completo redirigiendo a la landing para limpiar la memoria de React
+    // Forzamos un refresco completo redirigiendo a la landing
     window.location.href = "/";
   };
 
-  // Extraer iniciales dinámicas (Ej: "Jeferson Admin" -> "JE")
+  // Extraer iniciales dinámicas
   const getIniciales = (nombre: string) => {
     if (!nombre) return "U";
     return nombre.substring(0, 2).toUpperCase();
@@ -260,7 +276,6 @@ const AppSidebar = () => {
                 <SidebarMenuButton className="w-full justify-between">
                   <div className="flex items-center gap-2 overflow-hidden">
                     <User2 className="h-4 w-4 shrink-0" />
-                    {/* 🔄 Nombre dinámico en el botón colapsable */}
                     <span className="truncate font-medium">
                       {usuario ? usuario.username : "Cargando..."}
                     </span>
@@ -271,17 +286,14 @@ const AppSidebar = () => {
               <DropdownMenuContent align="end" className="w-56">
                 <div className="flex items-center gap-3 p-2 mb-2">
                   <Avatar className="h-8 w-8 bg-indigo-500/10 border border-indigo-500/20">
-                    {/* 🔄 Iniciales dinámicas del avatar */}
                     <AvatarFallback className="font-bold text-indigo-400 text-xs">
                       {getIniciales(usuario?.username || "U")}
                     </AvatarFallback>
                   </Avatar>
                   <div className="overflow-hidden">
-                    {/* 🔄 Nombre completo dinámico */}
                     <p className="font-medium text-sm truncate">
                       {usuario ? usuario.username : "Usuario CamCoach"}
                     </p>
-                    {/* 🔄 Correo electrónico dinámico */}
                     <p className="text-xs text-muted-foreground truncate">
                       {usuario ? usuario.email : "cargando..."}
                     </p>
@@ -303,7 +315,6 @@ const AppSidebar = () => {
 
                 <Separator className="my-1" />
 
-                {/* 🔴 BOTÓN DE CERRAR SESIÓN REAL Y VINCULADO */}
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="text-red-500 focus:text-red-500 focus:bg-red-500/10 cursor-pointer"

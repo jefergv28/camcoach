@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Clock, LogOut, Moon, Settings, Sun } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -17,6 +16,7 @@ import { Button } from "./ui/button";
 import { useTheme } from "next-themes";
 import { SidebarTrigger } from "./ui/sidebar";
 import { usePathname } from "next/navigation";
+import Cookies from "js-cookie"; // 🎯 CORRECCIÓN 1: Importamos js-cookie para manejo de sesión unificada
 
 interface UserInfo {
   email: string;
@@ -24,11 +24,11 @@ interface UserInfo {
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+// 🎯 CORRECCIÓN 2: Apuntamos al endpoint de autenticación real y forzamos el "/" final
+const API_PERFIL = `${BASE_URL}/auth/me/`;
 
 const Navbar = () => {
   const pathname = usePathname();
-  const router = useRouter();
   const { setTheme } = useTheme();
 
   const [user, setUser] = useState<UserInfo | null>(null);
@@ -38,9 +38,21 @@ const Navbar = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await fetch(API_BASE, {
+        const token = Cookies.get("token"); // 🎯 CORRECCIÓN 3: Leemos el token real de las cookies
+
+        // ESCUDO: Si el token no está listo en el navegador, evitamos peticiones vacías
+        if (!token) {
+          console.log("[Navbar] Esperando por el token unificado...");
+          return;
+        }
+
+        const res = await fetch(API_PERFIL, {
           method: "GET",
-          credentials: "include", // envía la cookie httpOnly
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`, // 🎯 Inyección obligatoria de credenciales
+          },
+          credentials: "include",
           mode: "cors",
         });
 
@@ -49,19 +61,20 @@ const Navbar = () => {
         }
 
         const data = await res.json();
-        setUser({ email: data.email, rol: data.rol });
+        // Soportamos si tu backend devuelve 'rol' o 'role'
+        setUser({ email: data.email, rol: data.rol || data.role || "user" });
       } catch (err) {
-        console.error("Error fetching user:", err);
+        console.error("Error fetching user en Navbar:", err);
         setUser(null);
-        // Opcional: redirigir si falla gravemente
-        // router.replace("/login");
       } finally {
         setLoadingUser(false);
       }
     };
 
-    fetchUser();
-  }, [router]);
+    if (pathname !== "/") {
+      fetchUser();
+    }
+  }, [pathname]);
 
   // Oculta navbar en landing
   if (pathname === "/") {
@@ -70,15 +83,20 @@ const Navbar = () => {
 
   // Logout
   const handleLogout = () => {
-    // Forzamos expiración de la cookie (client-side no borra httpOnly directamente, pero esto funciona)
-    document.cookie =
-      "camcoach_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    router.push("/login");
-    router.refresh(); // Refresca para que middleware detecte
+    // 🎯 CORRECCIÓN 4: Eliminamos la cookie unificada correcta y limpiamos localStorage
+    Cookies.remove("token");
+    localStorage.removeItem("token");
+
+    document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "camcoach_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+
+    // Forzamos reseteo de la memoria del cliente redirigiendo a la raíz
+    window.location.href = "/";
   };
 
   // Iniciales para Avatar
   const getInitials = (email: string) => {
+    if (!email) return "U";
     return email
       .split("@")[0]
       .split(".")
@@ -92,7 +110,7 @@ const Navbar = () => {
       {/* LEFT */}
       <div className="flex items-center gap-4">
         <SidebarTrigger />
-        <Link href="/dashboard" className="text-lg font-bold">
+        <Link href="/dashboard" className="text-lg font-bold text-foreground">
           CamCoach
         </Link>
       </div>
@@ -123,30 +141,33 @@ const Navbar = () => {
 
         {/* User Menu */}
         <DropdownMenu>
-          <DropdownMenuTrigger>
-            <Avatar className="h-9 w-9">
+          <DropdownMenuTrigger className="focus:outline-none">
+            <Avatar className="h-9 w-9 border hover:opacity-85 transition-opacity">
               <AvatarImage src="" alt="Avatar" />
-              <AvatarFallback>
+              <AvatarFallback className="bg-primary/5 font-semibold text-xs text-muted-foreground">
                 {loadingUser ? "..." : user ? getInitials(user.email) : "???"}
               </AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
-          <DropdownMenuContent sideOffset={10} align="end">
-            <DropdownMenuLabel>
-              {loadingUser
-                ? "Cargando..."
-                : user
-                  ? `${user.email.split("@")[0]} (${user.rol})`
-                  : "No autenticado"}
+          <DropdownMenuContent sideOffset={10} align="end" className="w-56">
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none truncate">
+                  {loadingUser ? "Cargando..." : user ? user.email.split("@")[0] : "Invitado"}
+                </p>
+                <p className="text-xs leading-none text-muted-foreground truncate">
+                  {loadingUser ? "..." : user ? `${user.email} (${user.rol})` : "No autenticado"}
+                </p>
+              </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
+            <DropdownMenuItem asChild className="cursor-pointer">
               <Link href="/dashboard/configuracion">
                 <Settings className="h-4 w-4 mr-2" />
-                Configuaracion
+                Configuración
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
+            <DropdownMenuItem asChild className="cursor-pointer">
               <Link href="/dashboard/configuracion/historial">
                 <Clock className="h-4 w-4 mr-2" />
                 Historial Actividad
@@ -155,7 +176,7 @@ const Navbar = () => {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleLogout}
-              className="text-destructive cursor-pointer"
+              className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
             >
               <LogOut className="h-4 w-4 mr-2" />
               Cerrar Sesión
