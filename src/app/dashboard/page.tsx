@@ -50,14 +50,18 @@ export default function Homepage() {
         // 🎯 1. Recuperamos el token de seguridad desde las cookies
         const token = Cookies.get("token");
 
+        if (!token){
+          console.log("[Dashboard] Token no definido")
+          return;
+        }
+
         // 🎯 2. Configuramos las cabeceras inyectando el Bearer Token si existe
         const headersConfig: HeadersInit = {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         };
 
-        if (token) {
-          headersConfig["Authorization"] = `Bearer ${token}`;
-        }
+        
 
         // 🎯 3. Peticiones paralelas apuntando a las rutas REALES e individuales del backend
         const [resIngresos, resTareas, resReportes, resClientes] =
