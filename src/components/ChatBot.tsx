@@ -1,13 +1,20 @@
+"use client";
+
 import React, { useState, useRef, useEffect } from "react";
-import { MessageSquare, X, Send } from "lucide-react"; // Iconos estándar de tu proyecto
+import { MessageSquare, X, Send } from "lucide-react";
+import Cookies from "js-cookie"; // 🎯 IMPORTACIÓN CLAVE PARA EL TOKEN
 
 interface Mensaje {
   remitente: "usuario" | "ia";
   texto: string;
 }
 
+// 🎯 CORRECCIÓN 1: Variable de entorno dinámica
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_CHAT = `${BASE_URL}/chat`;
+
 export default function ChatBot() {
-  const [abierto, setAbierto] = useState(false); // Estado para controlar si se muestra el chat o solo el botón
+  const [abierto, setAbierto] = useState(false);
   const [mensajes, setMensajes] = useState<Mensaje[]>([
     {
       remitente: "ia",
@@ -36,15 +43,16 @@ export default function ChatBot() {
     setCargando(true);
 
     try {
-      // 🚀 YA NO LEEMOS EL TOKEN MANUALMENTE.
-      // Usamos 'credentials: "include"' para que el navegador inyecte 'camcoach_token' solito.
-      const response = await fetch("http://localhost:8000/chat/", {
+      const token = Cookies.get("token"); // 🎯 CORRECCIÓN 2: Obtenemos el token seguro
+
+      // 🎯 CORRECCIÓN 3: Uso de la ruta dinámica y envío del Bearer Token
+      const response = await fetch(`${API_CHAT}/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // Desactivamos la cabecera Authorization manual para no crear conflictos
+          "Authorization": `Bearer ${token}`
         },
-        credentials: "include", // 👈 CLAVE: Envía las cookies HttpOnly automáticamente entre puertos
+        credentials: "include",
         body: JSON.stringify({ mensaje: mensajeUsuario }),
       });
 
@@ -68,9 +76,10 @@ export default function ChatBot() {
       setCargando(false);
     }
   };
+
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-      {/* 🏙️ VENTANA DEL CHAT (Solo se renderiza si 'abierto' es true) */}
+      {/* 🏙️ VENTANA DEL CHAT */}
       {abierto && (
         <div className="mb-4 flex flex-col h-112.5 w-90 sm:w-100 bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 transform scale-100 origin-bottom-right">
           {/* Encabezado del Chat */}
