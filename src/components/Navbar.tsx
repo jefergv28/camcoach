@@ -25,7 +25,7 @@ interface UserInfo {
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 // 🎯 CORRECCIÓN 2: Apuntamos al endpoint de autenticación real y forzamos el "/" final
-const API_PERFIL = `${BASE_URL}/auth/me/`;
+const API_PERFIL = `${BASE_URL}/auth/me`;
 
 const Navbar = () => {
   const pathname = usePathname();

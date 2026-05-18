@@ -66,7 +66,7 @@ const appItems = [
 ];
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 // 🎯 URL e inyección corregida apuntando a la ruta del perfil con "/" al final
-const API_PERFIL = `${BASE_URL}/auth/me/`;
+const API_PERFIL = `${BASE_URL}/auth/me`;
 
 const AppSidebar = () => {
   const pathname = usePathname();

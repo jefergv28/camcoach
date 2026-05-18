@@ -61,16 +61,16 @@ export default function Homepage() {
           "Authorization": `Bearer ${token}`,
         };
 
-        
+
 
         // 🎯 3. Peticiones paralelas apuntando a las rutas REALES e individuales del backend
         const [resIngresos, resTareas, resReportes, resClientes] =
           await Promise.all([
-            fetch(`${BASE_URL}/ingresos/`, {
+            fetch(`${BASE_URL}/ingresos`, {
               method: "GET",
               headers: headersConfig,
             }),
-            fetch(`${BASE_URL}/tareas/`, {
+            fetch(`${BASE_URL}/tareas`, {
               method: "GET",
               headers: headersConfig,
             }),
@@ -78,7 +78,7 @@ export default function Homepage() {
               method: "GET",
               headers: headersConfig,
             }),
-            fetch(`${BASE_URL}/clientes/`, {
+            fetch(`${BASE_URL}/clientes`, {
               method: "GET",
               headers: headersConfig,
             }),
