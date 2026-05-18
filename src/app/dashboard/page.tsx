@@ -6,6 +6,7 @@ import AppBarChart from "@/components/AppBarChart";
 import AppPieChart from "@/components/AppPieChart";
 import CardList from "@/components/CardList";
 import TodoList from "@/components/TodoList";
+import Cookies from "js-cookie"; // 🎯 IMPORTANTE: Para leer el token del inicio de sesión
 
 interface Ingreso {
   id: number;
@@ -31,8 +32,8 @@ interface Cliente {
   email?: string;
 }
 
+// 🎯 URL Base del servidor de FastAPI en Render
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
 
 export default function Homepage() {
   const [ingresos, setIngresos] = useState<Ingreso[]>([]);
@@ -46,33 +47,49 @@ export default function Homepage() {
   useEffect(() => {
     const cargarDashboardReal = async () => {
       try {
+        // 🎯 1. Recuperamos el token de seguridad desde las cookies
+        const token = Cookies.get("token");
+
+        // 🎯 2. Configuramos las cabeceras inyectando el Bearer Token si existe
+        const headersConfig: HeadersInit = {
+          "Content-Type": "application/json",
+        };
+
+        if (token) {
+          headersConfig["Authorization"] = `Bearer ${token}`;
+        }
+
+        // 🎯 3. Peticiones paralelas apuntando a las rutas REALES e individuales del backend
         const [resIngresos, resTareas, resReportes, resClientes] =
           await Promise.all([
-            fetch(API_BASE, {
+            fetch(`${BASE_URL}/ingresos/`, {
               method: "GET",
-              credentials: "include",
+              headers: headersConfig,
             }),
-            fetch(API_BASE, {
+            fetch(`${BASE_URL}/tareas/`, {
               method: "GET",
-              credentials: "include",
+              headers: headersConfig,
             }),
-            fetch(API_BASE, {
+            fetch(`${BASE_URL}/reportes/`, {
               method: "GET",
-              credentials: "include",
+              headers: headersConfig,
             }),
-            fetch(API_BASE, {
+            fetch(`${BASE_URL}/clientes/`, {
               method: "GET",
-              credentials: "include",
+              headers: headersConfig,
             }),
           ]);
 
+        // Verificamos si el backend nos rechazó (como el 401 que te salía)
         if (
           !resIngresos.ok ||
           !resTareas.ok ||
           !resReportes.ok ||
           !resClientes.ok
         ) {
-          throw new Error("Error en alguna de las rutas del backend");
+          throw new Error(
+            "Error de autorización o ruta inexistente en el backend",
+          );
         }
 
         const dataIngresos = await resIngresos.json();
@@ -85,7 +102,7 @@ export default function Homepage() {
         const tareasAdaptadas: Tarea[] = dataTareasRaw.map((t: any) => ({
           id: t.id,
           titulo: t.titulo,
-          completada: t.estado === "completado", // Si en la DB es "completado", aquí es true
+          completada: t.estado === "completado" || t.estado === "completada",
         }));
 
         setIngresos(dataIngresos);
@@ -110,8 +127,6 @@ export default function Homepage() {
         tarea.id === id ? { ...tarea, completada: !tarea.completada } : tarea,
       ),
     );
-    /* 💡 NOTA: Más adelante podemos meter aquí el fetch con método PUT a tu backend
-       (/tareas/{id}) para que el cambio se guarde permanentemente en PostgreSQL. */
   };
 
   if (cargando) {
@@ -172,7 +187,6 @@ export default function Homepage() {
 
       {/* ✅ Tareas pendientes del usuario logueado */}
       <div className="bg-primary-foreground p-4 rounded-lg">
-        {/* Enlazamos la función que creamos arriba con la propiedad del componente */}
         <TodoList initialTodos={tareas} onToggle={handleToggleTodo} />
       </div>
 
