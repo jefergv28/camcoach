@@ -27,7 +27,7 @@ import Cookies from "js-cookie"; // 🎯 IMPORTACIÓN CLAVE
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 // 🎯 CORRECCIÓN 1: Ruta corregida. Ajusta a "/configuracion" si así se llama en tu FastAPI
-const API_PERFIL = `${BASE_URL}/usuarios/me`;
+const API_PERFIL = `${BASE_URL}/configuracion`;
 
 export default function ConfiguracionPage() {
   const [config, setConfig] = useState({
