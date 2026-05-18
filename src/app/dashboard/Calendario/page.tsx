@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -17,6 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import Cookies from "js-cookie"; // 🎯 IMPORTANTE: Para la sesión
 
 type Evento = {
   id: number;
@@ -38,7 +40,11 @@ type Cliente = {
 };
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+
+// 🎯 CORRECCIÓN 1: Separamos las bases de API para Eventos y Clientes
+// (Asegúrate de que esta ruta "/eventos" exista en tu backend de FastAPI)
+const API_EVENTOS = `${BASE_URL}/eventos/`;
+const API_CLIENTES = `${BASE_URL}/clientes/`;
 
 const CalendarioPage = () => {
   const [fechaSeleccionada, setFechaSeleccionada] = useState<Date | undefined>(
@@ -51,22 +57,43 @@ const CalendarioPage = () => {
   const [eventoEditando, setEventoEditando] = useState<Evento | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [eventoAEliminar, setEventoAEliminar] = useState<Evento | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Cargar eventos y clientes
   useEffect(() => {
+    setIsMounted(true);
     const cargarDatos = async () => {
       try {
-        const resEventos = await fetch(API_BASE, {
-          method: "GET",
-          credentials: "include",
-        });
-        if (resEventos.ok) setEventos(await resEventos.json());
+        const token = Cookies.get("token");
+        if (!token) return;
 
-        const resClientes = await fetch(API_BASE, {
+        const headersConfig = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        };
+
+        // 🎯 Cargar Eventos
+        const resEventos = await fetch(API_EVENTOS, {
           method: "GET",
           credentials: "include",
+          headers: headersConfig
         });
-        if (resClientes.ok) setClientes(await resClientes.json());
+        if (resEventos.ok) {
+           const dataEventos = await resEventos.json();
+           setEventos(Array.isArray(dataEventos) ? dataEventos : []);
+        }
+
+        // 🎯 Cargar Clientes desde la ruta correcta
+        const resClientes = await fetch(API_CLIENTES, {
+          method: "GET",
+          credentials: "include",
+          headers: headersConfig
+        });
+
+        if (resClientes.ok) {
+           const dataClientes = await resClientes.json();
+           setClientes(Array.isArray(dataClientes) ? dataClientes : []);
+        }
       } catch (error) {
         console.error("Error al conectar con el backend:", error);
       }
@@ -74,11 +101,14 @@ const CalendarioPage = () => {
     cargarDatos();
   }, []);
 
-  const eventosDelDia = eventos.filter(
+  // 🛡️ Prevenir colapso por array undefined
+  const eventosSeguros = eventos || [];
+
+  const eventosDelDia = eventosSeguros.filter(
     (e) => e.fecha === fechaSeleccionada?.toISOString().split("T")[0],
   );
 
-  const proximosEventos = [...eventos]
+  const proximosEventos = [...eventosSeguros]
     .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
     .filter(
       (e) => new Date(e.fecha) >= new Date(new Date().setHours(0, 0, 0, 0)),
@@ -108,13 +138,20 @@ const CalendarioPage = () => {
     };
 
     try {
+      const token = Cookies.get("token");
+      if (!token) return;
+
       const url =
         editMode && eventoEditando
-          ? `${API_BASE}${eventoEditando.id}`
-          : API_BASE;
+          ? `${API_EVENTOS}${eventoEditando.id}`
+          : API_EVENTOS;
+
       const response = await fetch(url, {
         method: editMode ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify(datosEvento),
         credentials: "include",
       });
@@ -123,10 +160,10 @@ const CalendarioPage = () => {
         const eventoServidor = await response.json();
         setEventos(
           editMode
-            ? eventos.map((e) =>
+            ? eventosSeguros.map((e) =>
                 e.id === eventoServidor.id ? eventoServidor : e,
               )
-            : [eventoServidor, ...eventos],
+            : [eventoServidor, ...eventosSeguros],
         );
         setDialogOpen(false);
         setEditMode(false);
@@ -141,17 +178,21 @@ const CalendarioPage = () => {
   const handleDeleteEvento = async () => {
     if (!eventoAEliminar) return;
     try {
-      const response = await fetch(`${API_BASE }${eventoAEliminar.id}`, {
+      const token = Cookies.get("token");
+      if (!token) return;
+
+      const response = await fetch(`${API_EVENTOS}${eventoAEliminar.id}`, {
         method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
         credentials: "include",
       });
       if (response.ok) {
-        setEventos(eventos.filter((e) => e.id !== eventoAEliminar.id));
+        setEventos(eventosSeguros.filter((e) => e.id !== eventoAEliminar.id));
         setDeleteDialogOpen(false);
         setEventoAEliminar(null);
         toast.success("Evento eliminado");
       } else {
-        toast.error("No se pudo eliminar el evento ");
+        toast.error("No se pudo eliminar el evento");
       }
     } catch {
       toast.error("Error al eliminar");
@@ -166,6 +207,15 @@ const CalendarioPage = () => {
     setDialogOpen(true);
   };
 
+  // 🛡️ Escudo de hidratación (Evita el Error #418 de Next.js)
+  if (!isMounted) {
+    return (
+      <div className="p-8 text-center text-slate-500 animate-pulse font-medium">
+        Cargando agenda... 📅
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 p-8 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
@@ -176,7 +226,7 @@ const CalendarioPage = () => {
           </h1>
         </div>
         <Badge className="text-blue-600 dark:text-blue-200 border border-blue-200 dark:border-blue-500 bg-blue-50 dark:bg-blue-900 px-4 py-1">
-          {eventos.length} Eventos
+          {eventosSeguros.length} Eventos
         </Badge>
       </div>
 
@@ -255,7 +305,7 @@ const CalendarioPage = () => {
                           size="icon"
                           className="h-7 w-7 p-0 hover:bg-red-100"
                           onClick={() => {
-                            setEventoAEliminar(e); // <--- Aquí asignas el evento que vas a eliminar
+                            setEventoAEliminar(e);
                             setDeleteDialogOpen(true);
                           }}
                         >
@@ -265,7 +315,7 @@ const CalendarioPage = () => {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 p-0 hover:bg-blue-100"
-                          onClick={() => handleEditEvento(e)} // <--- Aquí la usas
+                          onClick={() => handleEditEvento(e)}
                         >
                           <Edit3 className="h-3 w-3" />
                         </Button>
@@ -366,82 +416,54 @@ export default CalendarioPage;
 type EventoFormProps = {
   onSave: (
     titulo: string,
-
     cliente: string,
-
     descripcion?: string,
-
     hora?: string,
-
     miRecordatorio?: boolean,
-
     notificarCliente?: boolean,
-
     tipoNotifCliente?: "whatsapp" | "email" | "sms",
   ) => void;
-
   clientes: {
     id?: number;
-
     nombre: string;
-
     telefono?: string;
-
     email?: string;
   }[];
-
   eventoEditando: Evento | null;
-
   editMode: boolean;
 };
 
 const EventoForm = ({
   onSave,
-
   clientes,
-
   eventoEditando,
-
   editMode,
 }: EventoFormProps) => {
   const [titulo, setTitulo] = useState(eventoEditando?.titulo || "");
-
   const [cliente, setCliente] = useState(eventoEditando?.cliente || "");
-
   const [descripcion, setDescripcion] = useState(
     eventoEditando?.descripcion || "",
   );
-
   const [hora, setHora] = useState(eventoEditando?.hora || "");
-
   const [miRecordatorio, setMiRecordatorio] = useState(
     eventoEditando?.miRecordatorio || false,
   );
-
   const [notificarCliente, setNotificarCliente] = useState(
     eventoEditando?.notificarCliente || false,
   );
-
   const [tipoNotifCliente, setTipoNotifCliente] = useState<
     "whatsapp" | "email" | "sms" | undefined
   >(eventoEditando?.tipoNotifCliente);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Formulario enviado", { titulo, cliente, descripcion, hora });
     onSave(
       titulo,
-
       cliente,
-
       descripcion,
-
       hora,
-
       miRecordatorio,
-
       notificarCliente,
-
       tipoNotifCliente,
     );
   };
@@ -449,13 +471,14 @@ const EventoForm = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-4 mt-4">
       <input
-        className="w-full border rounded p-2"
+        className="w-full border rounded p-2 bg-background"
         placeholder="Título del evento"
         value={titulo}
         onChange={(e) => setTitulo(e.target.value)}
         required
       />
 
+      {/* 🎯 EL SELECT DE CLIENTES YA NO COLAPSARÁ Y MOSTRARÁ LOS DATOS */}
       <select
         className="w-full border rounded p-2 bg-background"
         value={cliente}
@@ -465,8 +488,7 @@ const EventoForm = ({
         <option value="" disabled>
           Seleccionar cliente
         </option>
-
-        {clientes.map((c, index) => (
+        {clientes?.map((c, index) => (
           <option key={c.id || index} value={c.nombre}>
             {c.nombre}
           </option>
@@ -475,32 +497,34 @@ const EventoForm = ({
 
       <input
         type="time"
-        className="w-full border rounded p-2"
+        className="w-full border rounded p-2 bg-background"
         value={hora}
         onChange={(e) => setHora(e.target.value)}
       />
 
       <textarea
-        className="w-full border rounded p-2"
+        className="w-full border rounded p-2 bg-background min-h-25"
         placeholder="Descripción"
         value={descripcion}
         onChange={(e) => setDescripcion(e.target.value)}
       />
 
-      <label className="flex gap-2 items-center">
+      <label className="flex gap-2 items-center cursor-pointer">
         <input
           type="checkbox"
           checked={miRecordatorio}
           onChange={(e) => setMiRecordatorio(e.target.checked)}
+          className="w-4 h-4 rounded border-gray-300"
         />
         Recordatorio para mí
       </label>
 
-      <label className="flex gap-2 items-center">
+      <label className="flex gap-2 items-center cursor-pointer">
         <input
           type="checkbox"
           checked={notificarCliente}
           onChange={(e) => setNotificarCliente(e.target.checked)}
+          className="w-4 h-4 rounded border-gray-300"
         />
         Notificar cliente
       </label>
@@ -516,16 +540,13 @@ const EventoForm = ({
           <option value="" disabled>
             Tipo de notificación
           </option>
-
           <option value="whatsapp">WhatsApp</option>
-
           <option value="email">Email</option>
-
           <option value="sms">SMS</option>
         </select>
       )}
 
-      <Button type="submit" className="w-full">
+      <Button type="submit" className="w-full mt-4">
         {editMode ? "Actualizar Evento" : "Crear Evento"}
       </Button>
     </form>
