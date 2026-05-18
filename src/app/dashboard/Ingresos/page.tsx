@@ -42,14 +42,14 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { BarChart, CartesianGrid, XAxis, YAxis, Bar } from "recharts";
-import { toast } from "sonner"; // Agregado para notificaciones
+import { toast } from "sonner";
+import Cookies from "js-cookie"; // 🎯 CORRECCIÓN: Para inyectar el token en las peticiones mutables
 
 import * as XLSX from "xlsx";
 
-// Tipos adaptados al Backend de FastAPI
 type Ingreso = {
   id: number;
-  fecha: string; // yyyy-mm-dd
+  fecha: string;
   cliente_id: number;
   monto: number;
   descripcion?: string;
@@ -63,7 +63,8 @@ type Cliente = {
 };
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+// 🎯 CORRECCIÓN 1: Normalizamos la barra inclinada al final de la constante base
+const API_BASE = `${BASE_URL}/ingresos/`;
 
 const chartConfig: ChartConfig = {
   clientesTop: {
@@ -92,7 +93,6 @@ const IngresosPage = () => {
       return;
     }
 
-    // 1. Preparamos los datos limpios para el Excel
     const datosExportar = ingresos.map((ingreso) => ({
       Fecha: ingreso.fecha,
       Cliente: getNombreCliente(ingreso.cliente_id),
@@ -102,24 +102,37 @@ const IngresosPage = () => {
       "Monto ($)": Number(ingreso.monto),
     }));
 
-    // 2. Creamos la hoja y el libro de Excel
     const hoja = XLSX.utils.json_to_sheet(datosExportar);
     const libro = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(libro, hoja, "Ingresos");
 
-    // 3. Generamos y descargamos el archivo
-    XLSX.writeFile(libro, "Reporte_Ingresos_CAMCOAH.xlsx");
+    XLSX.writeFile(libro, "Reporte_Ingresos_CAMCOACH.xlsx");
     toast.success("Excel descargado correctamente");
   };
+
   // Fetch a la API
   useEffect(() => {
     const cargarDatos = async () => {
       try {
-        const resIngresos = await fetch(API_BASE , { credentials: "include" });
+        const token = Cookies.get("token");
+        if (!token) return;
+
+        const headersConfig = {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        };
+
+        // 🎯 CORRECCIÓN 2: Le pega directo a /ingresos/ sin provocar redirect 307
+        const resIngresos = await fetch(API_BASE, {
+          credentials: "include",
+          headers: headersConfig
+        });
         if (resIngresos.ok) setIngresos(await resIngresos.json());
 
-        const resClientes = await fetch(`${API_BASE}clientes/`, {
+        // 🎯 CORRECCIÓN 3: Arreglamos la ruta rota. Ahora da /clientes/ usando el endpoint global de clientes
+        const resClientes = await fetch(`${BASE_URL}/clientes/`, {
           credentials: "include",
+          headers: headersConfig
         });
         if (resClientes.ok) setClientes(await resClientes.json());
       } catch (error) {
@@ -130,13 +143,11 @@ const IngresosPage = () => {
     cargarDatos();
   }, []);
 
-  // Función para obtener nombre del cliente por ID
   const getNombreCliente = (id: number) => {
     const cliente = clientes.find((c) => c.id === id);
     return cliente ? cliente.nombre : "Desconocido";
   };
 
-  // Cálculos dinámicos
   const hoy = new Date().toISOString().split("T")[0];
   const totalIngresos = ingresos
     .filter((i) => i.estado === "pagado")
@@ -145,7 +156,6 @@ const IngresosPage = () => {
     .filter((i) => i.fecha === hoy && i.estado === "pagado")
     .reduce((sum, i) => sum + Number(i.monto), 0);
 
-  // Gráfico (Datos estáticos de ejemplo por ahora, se puede dinamizar luego)
   const chartData = [
     { month: "Enero", clientesTop: 1860, restoClientes: 800 },
     { month: "Febrero", clientesTop: 2050, restoClientes: 1200 },
@@ -173,13 +183,23 @@ const IngresosPage = () => {
     };
 
     try {
-      const url =
-        editMode && ingresoEditando
-          ? `${API_BASE }${ingresoEditando.id}`
-          : API_BASE ;
+      const token = Cookies.get("token");
+      if (!token) {
+        toast.error("Sesión no válida");
+        return;
+      }
+
+      // 🎯 CORRECCIÓN 4: Construcción limpia de URL con "/" explícitos
+      const url = editMode && ingresoEditando
+          ? `${API_BASE}${ingresoEditando.id}`
+          : API_BASE;
+
       const response = await fetch(url, {
         method: editMode ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` // Inyección del token unificado
+        },
         body: JSON.stringify(datosIngreso),
         credentials: "include",
       });
@@ -208,8 +228,15 @@ const IngresosPage = () => {
 
   const handleDeleteIngreso = async (id: number) => {
     try {
-      const response = await fetch(`${API_BASE }${id}`, {
+      const token = Cookies.get("token");
+      if (!token) return;
+
+      // 🎯 CORRECCIÓN 5: Ruta de eliminación corregida a /ingresos/id
+      const response = await fetch(`${API_BASE}${id}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
         credentials: "include",
       });
       if (response.ok) {
@@ -373,7 +400,7 @@ const IngresosPage = () => {
                         </div>
                         <div className="text-right">
                           <div className="font-bold text-lg text-green-600">
-                            ${Number(ingreso.monto).toLocaleString("es-CO")}
+                            ${number(ingreso.monto).toLocaleString("es-CO")}
                           </div>
                           <Badge
                             variant={
