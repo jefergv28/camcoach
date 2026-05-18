@@ -23,7 +23,8 @@ import {
 } from "lucide-react";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+// 🎯 CORRECCIÓN: La API de usuarios es directa en la raíz del backend, no depende de /ingresos
+const API_BASE = `${BASE_URL}/usuarios`;
 
 export default function RegisterPage() {
   const [nombre, setNombre] = useState("");
@@ -42,16 +43,17 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/usuarios/`, {
+      // 🎯 Queda apuntando limpio a: URL_DE_RENDER/usuarios/
+      const response = await fetch(`${API_BASE}/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username: nombre, //FastApi espera "username"
+          username: nombre, // FastAPI espera "username"
           email: email,
           password: password,
-          rol: "admin", // forzamos el rol de admin para la cuenta creada en registro
+          rol: "admin", // Forzamos el rol de admin para la cuenta creada en registro
           is_active: true,
         }),
       });
@@ -59,42 +61,38 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        //manejo de errores especifico del bakend
         if (response.status === 400 && data.detail?.includes("registrado")) {
           throw new Error("El email ya está registrado. Prueba con otro.");
         } else if (response.status === 422) {
           console.error("Error de validacion:", data.detail);
           throw new Error(
-            "Datos inválidos. Verifica el email y la contraseña (mínimo 8 caracteres).",
+            "Datos inválidos. Verifica el email y la contraseña (mínimo 8 caracteres)."
           );
         } else {
           throw new Error(data.detail || "Error al crear la cuenta");
         }
       }
 
-      // Éxito: el backend devuelve el usuario creado
       setSuccess("¡Cuenta creada exitosamente! Ahora inicia sesión.");
 
-      // Limpia el form
       setNombre("");
       setEmail("");
       setPassword("");
 
-      // Redirigir al login después de 2 segundos (o inmediato si prefieres)
       setTimeout(() => {
         router.push("/login");
       }, 2000);
     } catch (err: unknown) {
       if (err instanceof Error) {
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : "Erro al conectar co el servidor ";
-        setError(errorMessage);
+        setError(err.message);
         console.log(err.message);
+      } else {
+        setError("Error al conectar con el servidor");
       }
-    } finally {
-      setLoading(false);
+       } finally {
+      if (loading) {
+    setLoading(false);
+  }
     }
   };
 
@@ -116,8 +114,9 @@ export default function RegisterPage() {
                   />
                 </span>
               </div>
+              {/* 🎯 CORRECCIÓN: Link relativo para que sirva dinámicamente en producción */}
               <Link
-                href="http://localhost:3000/"
+                href="/"
                 className="text-xl font-bold text-foreground"
               >
                 CamCoach
@@ -140,7 +139,6 @@ export default function RegisterPage() {
           </CardHeader>
           <CardContent className="p-6 lg:p-8 space-y-6">
             <form onSubmit={handleRegister} className="space-y-4">
-              {/* Mensajes de éxito o error */}
               {error && (
                 <div className="bg-destructive/15 text-destructive text-sm p-3 rounded-md flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
