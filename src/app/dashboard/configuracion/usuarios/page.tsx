@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import Cookies from "js-cookie"; // 🎯 IMPORTACIÓN CLAVE
 
 type Usuario = {
   id: number;
@@ -55,10 +56,10 @@ type Cliente = {
   nombre: string;
 };
 
-// Mantenemos las URLs de tu entorno local
+// 🎯 CORRECCIÓN 1: Variables de entorno dinámicas y rutas correctas
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
-const CLIENTES_URL = "http://localhost:8000/clientes/";
+const API_USUARIOS = `${BASE_URL}/usuarios`;
+const API_CLIENTES = `${BASE_URL}/clientes/`;
 
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -66,6 +67,7 @@ export default function UsuariosPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [credencialesDialog, setCredencialesDialog] = useState(false);
   const [copiado, setCopiado] = useState(false);
+  const [isMounted, setIsMounted] = useState(false); // 🎯 Escudo de hidratación
 
   const [credenciales, setCredenciales] = useState({
     id: 0,
@@ -80,17 +82,32 @@ export default function UsuariosPage() {
     cliente_id: "",
   });
 
-  // 1. CARGAR DATOS (Usuarios y la lista de Clientes para vincular)
+  // 1. CARGAR DATOS
   const cargarDatos = async () => {
     try {
-      // Usamos credentials: "include" para que las Cookies de sesión viajen al backend
+      const token = Cookies.get("token");
+      if (!token) return;
+
+      const headersConfig = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      };
+
+      // 🎯 CORRECCIÓN 2: Inyección del token a ambas peticiones
       const [resUsers, resClients] = await Promise.all([
-        fetch(API_BASE, { credentials: "include" }),
-        fetch(CLIENTES_URL, { credentials: "include" }),
+        fetch(`${API_USUARIOS}/`, { headers: headersConfig, credentials: "include" }),
+        fetch(API_CLIENTES, { headers: headersConfig, credentials: "include" }),
       ]);
 
-      if (resUsers.ok) setUsuarios(await resUsers.json());
-      if (resClients.ok) setClientes(await resClients.json());
+      if (resUsers.ok) {
+        const dataUsers = await resUsers.json();
+        setUsuarios(Array.isArray(dataUsers) ? dataUsers : []);
+      }
+
+      if (resClients.ok) {
+        const dataClients = await resClients.json();
+        setClientes(Array.isArray(dataClients) ? dataClients : []);
+      }
 
       if (resUsers.status === 401)
         toast.error("Sesión no autorizada o expirada");
@@ -101,12 +118,13 @@ export default function UsuariosPage() {
   };
 
   useEffect(() => {
+    setIsMounted(true);
     cargarDatos();
   }, []);
 
   const generarPass = () => Math.random().toString(36).slice(-8);
 
-  // 2. CREAR USUARIO (VINCULADO A CLIENTE)
+  // 2. CREAR USUARIO
   const crearUsuario = async () => {
     if (nuevoUsuario.rol === "cliente" && !nuevoUsuario.cliente_id) {
       toast.warning("Debes seleccionar un cliente para este acceso.");
@@ -118,17 +136,24 @@ export default function UsuariosPage() {
       ...nuevoUsuario,
       password: passMock,
       is_active: true,
-      cliente_id: nuevoUsuario.cliente_id
-        ? Number(nuevoUsuario.cliente_id)
-        : null,
+      cliente_id: nuevoUsuario.cliente_id ? Number(nuevoUsuario.cliente_id) : null,
     };
 
     try {
-      const response = await fetch(API_BASE, {
+      const token = Cookies.get("token");
+      if (!token) {
+        toast.error("Sesión inválida");
+        return;
+      }
+
+      const response = await fetch(`${API_USUARIOS}/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(payload),
-        credentials: "include", // Importante para Cookies
+        credentials: "include",
       });
 
       if (response.ok) {
@@ -158,11 +183,18 @@ export default function UsuariosPage() {
     }
   };
 
-  // 3. ELIMINAR (Sin alert nativo, usando toast para confirmación si fuera necesario)
+  // 3. ELIMINAR
   const eliminarUsuario = async (id: number) => {
     try {
-      const response = await fetch(`${API_BASE}${id}`, {
+      const token = Cookies.get("token");
+      if (!token) return;
+
+      // 🎯 CORRECCIÓN 3: Slash "/" agregado
+      const response = await fetch(`${API_USUARIOS}/${id}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
         credentials: "include",
       });
       if (response.ok) {
@@ -175,11 +207,19 @@ export default function UsuariosPage() {
     }
   };
 
+  // 4. CAMBIAR ESTADO
   const toggleActivo = async (usuario: Usuario) => {
     try {
-      const response = await fetch(`${API_BASE}${usuario.id}`, {
+      const token = Cookies.get("token");
+      if (!token) return;
+
+      // 🎯 CORRECCIÓN 3: Slash "/" agregado
+      const response = await fetch(`${API_USUARIOS}/${usuario.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ is_active: !usuario.is_active }),
         credentials: "include",
       });
@@ -203,6 +243,14 @@ export default function UsuariosPage() {
     toast.success("Copiado al portapapeles");
   };
 
+  if (!isMounted) {
+    return (
+      <div className="p-8 text-center text-slate-500 animate-pulse font-medium">
+        Cargando gestión de usuarios... ⚙️
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -222,7 +270,8 @@ export default function UsuariosPage() {
               <Plus className="mr-2 h-4 w-4" /> Nuevo Usuario
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          {/* 🎯 CORRECCIÓN 4: aria-describedby para accesibilidad */}
+          <DialogContent aria-describedby={undefined}>
             <DialogHeader>
               <DialogTitle>Crear Usuario</DialogTitle>
               <DialogDescription>
@@ -255,7 +304,7 @@ export default function UsuariosPage() {
                   <SelectValue placeholder="Seleccionar Cliente..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {clientes.map((c) => (
+                  {clientes?.map((c) => (
                     <SelectItem key={c.id} value={c.id.toString()}>
                       {c.nombre}
                     </SelectItem>
@@ -275,7 +324,7 @@ export default function UsuariosPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Usuarios ({usuarios.length})</CardTitle>
+          <CardTitle>Lista de Usuarios ({usuarios?.length || 0})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -290,43 +339,51 @@ export default function UsuariosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {usuarios.map((usuario) => (
-                  <TableRow key={usuario.id}>
-                    <TableCell>{usuario.username}</TableCell>
-                    <TableCell>{usuario.email}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          usuario.rol === "admin" ? "default" : "secondary"
-                        }
-                      >
-                        {usuario.rol.toUpperCase()}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleActivo(usuario)}
-                      >
-                        {usuario.is_active ? (
-                          <Eye className="h-4 w-4 text-blue-500" />
-                        ) : (
-                          <EyeOff className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </Button>
-                    </TableCell>
-                    <TableCell className="space-x-1">
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => eliminarUsuario(usuario.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                {usuarios?.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                      No hay usuarios registrados.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  usuarios?.map((usuario) => (
+                    <TableRow key={usuario.id}>
+                      <TableCell>{usuario.username}</TableCell>
+                      <TableCell>{usuario.email}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            usuario.rol === "admin" ? "default" : "secondary"
+                          }
+                        >
+                          {usuario.rol.toUpperCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleActivo(usuario)}
+                        >
+                          {usuario.is_active ? (
+                            <Eye className="h-4 w-4 text-blue-500" />
+                          ) : (
+                            <EyeOff className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </Button>
+                      </TableCell>
+                      <TableCell className="space-x-1">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => eliminarUsuario(usuario.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
@@ -335,7 +392,8 @@ export default function UsuariosPage() {
 
       {/* DIALOG DE CREDENCIALES (MODAL DE ÉXITO) */}
       <Dialog open={credencialesDialog} onOpenChange={setCredencialesDialog}>
-        <DialogContent className="sm:max-w-md">
+        {/* 🎯 CORRECCIÓN 4: aria-describedby para accesibilidad */}
+        <DialogContent aria-describedby={undefined} className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="text-green-500 h-5 w-5" />
