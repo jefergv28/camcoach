@@ -12,8 +12,8 @@ import {
   DollarSign,
   CalendarIcon,
   Loader2,
-  MessageSquare, // 🚀 Nuevo ícono para WhatsApp
-  Eye, // 🚀 Nuevo ícono para ver perfil
+  MessageSquare,
+  Eye,
 } from "lucide-react";
 import {
   Select,
@@ -22,11 +22,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator"; // 🚀 Para separar las acciones
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import Link from "next/link";
-
-
+import Cookies from "js-cookie"; // 🚀 IMPORTACIÓN CLAVE AGREGADA
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const API_BASE = `${BASE_URL}/ingresos`;
@@ -52,17 +51,20 @@ export default function BuscadorPage() {
   // 1. CARGAR RECOMENDACIONES GENERADAS POR EL BACKEND
   const cargarSugerenciasIA = async () => {
     try {
+      const token = Cookies.get("token"); // 🎯 LEYENDO DESDE LA COOKIE
+      if (!token) return;
+
       const response = await fetch(`${API_BASE}/recomendaciones`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`, // 🎯 INYECTANDO EL TOKEN REAL
         },
         credentials: "include",
       });
       if (response.ok) {
         const data = await response.json();
-        setRecomendaciones(data);
+        setRecomendaciones(Array.isArray(data) ? data : []); // Blindaje por si acaso
       }
     } catch (error) {
       console.error("Error al traer sugerencias IA:", error);
@@ -78,13 +80,20 @@ export default function BuscadorPage() {
 
     setLoading(true);
     try {
+      const token = Cookies.get("token"); // 🎯 LEYENDO DESDE LA COOKIE
+      if (!token) {
+        toast.error("Sesión no válida");
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch(
         `${API_BASE}/?q=${textoAEvaluar}&tipo=${tipoFiltro}`,
         {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${token}`, // 🎯 INYECTANDO EL TOKEN REAL
           },
           credentials: "include",
         },
@@ -92,7 +101,7 @@ export default function BuscadorPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setResultados(data);
+        setResultados(Array.isArray(data) ? data : []);
       } else {
         toast.error("Error en los filtros de búsqueda");
       }
@@ -141,7 +150,7 @@ export default function BuscadorPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Escribe un nombre, estado, teléfono..."
-              className="pl-12 pr-28 h-14 text-lg rounded-2xl border-2"
+              className="pl-12 pr-28 h-14 text-lg rounded-2xl border-2 bg-background"
               onKeyDown={(e) => e.key === "Enter" && buscar()}
             />
             <Button
@@ -160,7 +169,7 @@ export default function BuscadorPage() {
           {/* FILTRO MANUAL */}
           <div className="flex justify-center mt-6">
             <Select value={tipoFiltro} onValueChange={(v) => setTipoFiltro(v)}>
-              <SelectTrigger className="w-64 rounded-xl border-2">
+              <SelectTrigger className="w-64 rounded-xl border-2 bg-background">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -181,7 +190,7 @@ export default function BuscadorPage() {
           Sugerencias del Asistente
         </h3>
         <div className="grid md:grid-cols-3 gap-4 max-w-4xl mx-auto">
-          {recomendaciones.map((rec, i) => (
+          {recomendaciones?.map((rec, i) => (
             <Card
               key={i}
               className="group cursor-pointer hover:scale-[1.02] transition-all border-2 border-transparent hover:border-purple-500/50 bg-linear-to-r from-purple-500/5 to-blue-500/5"
@@ -239,7 +248,7 @@ export default function BuscadorPage() {
                       </h4>
                       {item.monto !== undefined && (
                         <div className="text-2xl font-bold text-green-500 mb-2">
-                          ${item.monto.toLocaleString()}
+                          ${Number(item.monto).toLocaleString("es-CO")}
                         </div>
                       )}
                       <div className="space-y-1 text-sm text-muted-foreground">
@@ -316,7 +325,7 @@ export default function BuscadorPage() {
           <CardContent>
             <Search className="h-16 w-16 mx-auto mb-4 text-purple-400/60 opacity-70" />
             <h3 className="text-2xl font-bold mb-2 text-white">
-              No encontramos coincidences para tu búsqueda
+              No encontramos coincidencias para tu búsqueda
             </h3>
             <p className="text-gray-400 max-w-md mx-auto mb-6">
               El asistente inteligente no detectó registros con el término{" "}
@@ -336,7 +345,7 @@ export default function BuscadorPage() {
               </Button>
               <Button
                 onClick={() => buscar("activa")}
-                className="rounded-xl bg-purple-600 hover:bg-purple-700"
+                className="rounded-xl bg-purple-600 hover:bg-purple-700 text-white"
               >
                 Ver clientes activos
               </Button>
