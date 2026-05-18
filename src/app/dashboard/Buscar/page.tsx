@@ -28,7 +28,7 @@ import Link from "next/link";
 import Cookies from "js-cookie"; // 🚀 IMPORTACIÓN CLAVE AGREGADA
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_BASE = `${BASE_URL}/ingresos`;
+const API_BASE = `${BASE_URL}/buscador`;
 
 type ResultadoBusqueda = {
   id: string;
