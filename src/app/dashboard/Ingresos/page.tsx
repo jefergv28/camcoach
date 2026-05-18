@@ -46,7 +46,6 @@ import { toast } from "sonner";
 import Cookies from "js-cookie"; // 🎯 CORRECCIÓN: Para inyectar el token en las peticiones mutables
 
 import * as XLSX from "xlsx";
-import { number } from "zod";
 
 type Ingreso = {
   id: number;
@@ -401,7 +400,7 @@ const IngresosPage = () => {
                         </div>
                         <div className="text-right">
                           <div className="font-bold text-lg text-green-600">
-                            ${number(ingreso.monto).toLocaleString("es-CO")}
+                           ${Number(ingreso.monto).toLocaleString("es-CO")}
                           </div>
                           <Badge
                             variant={
